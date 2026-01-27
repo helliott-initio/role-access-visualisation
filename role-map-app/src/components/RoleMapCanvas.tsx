@@ -340,14 +340,42 @@ export function RoleMapCanvas({
       changes.forEach((change) => {
         if (change.type === 'position' && change.position && change.dragging === false) {
           if (!change.id.startsWith('section-')) {
+            let finalPosition = change.position;
+
+            // Snap to section center if close
+            const group = map.groups.find(g => g.id === change.id);
+            if (group && group.sectionId && group.sectionId !== 'root') {
+              const section = map.sections.find(s => s.id === group.sectionId);
+              if (section) {
+                const sectionPos = section.position || { x: 0, y: 0 };
+                const sectionWidth = section.size?.width || 250;
+                const nodeWidth = 150; // Approximate node width
+                const padding = 20; // Padding inside section
+
+                // Calculate center X position for the node within the section
+                const centerX = sectionPos.x + padding + (sectionWidth - 2 * padding - nodeWidth) / 2;
+
+                // Snap to center if within 25px
+                if (Math.abs(change.position.x - centerX) < 25) {
+                  finalPosition = { ...change.position, x: centerX };
+                  // Update the node position in state
+                  setNodes(currentNodes =>
+                    currentNodes.map(n =>
+                      n.id === change.id ? { ...n, position: finalPosition } : n
+                    )
+                  );
+                }
+              }
+            }
+
             // Update cache and persist to data model
-            positionCacheRef.current.set(change.id, change.position);
-            onNodePositionChange(change.id, change.position);
+            positionCacheRef.current.set(change.id, finalPosition);
+            onNodePositionChange(change.id, finalPosition);
           }
         }
       });
     },
-    [onNodesChange, onNodePositionChange, onSectionPositionChange, setNodes]
+    [onNodesChange, onNodePositionChange, onSectionPositionChange, setNodes, map.groups, map.sections]
   );
 
   const handleNodeClick = useCallback(
