@@ -25,10 +25,11 @@ This roadmap transforms an existing React Flow app from "almost works" to "just 
   2. User sees visual highlight on valid target handles while dragging connector
   3. User reconnects existing edge to different handle → edge position updates and persists across reload
   4. Edge positions survive section collapse/expand without snapping to wrong handles
-**Plans**: TBD
+**Plans**: 2 plans
 
 Plans:
-- [ ] 01-01: [TBD during planning]
+- [ ] 01-01-PLAN.md — Fix edge handle persistence (handles connect to exact positions and persist)
+- [ ] 01-02-PLAN.md — Add visual feedback during connection (handles highlight when dragging)
 
 ### Phase 2: Project Lifecycle
 **Goal**: Users start with clean slate and can manage project tabs through their entire lifecycle.
@@ -82,11 +83,11 @@ Phases execute in numeric order: 1 → 2 → 3 → 4
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Connector Fix | 0/? | Not started | - |
+| 1. Connector Fix | 0/2 | Planned | - |
 | 2. Project Lifecycle | 0/? | Not started | - |
 | 3. Undo/Redo | 0/? | Not started | - |
 | 4. UX Polish | 0/? | Not started | - |
 
 ---
 *Roadmap created: 2026-01-27*
-*Last updated: 2026-01-27*
+*Last updated: 2026-01-27 (Phase 1 planned)*
