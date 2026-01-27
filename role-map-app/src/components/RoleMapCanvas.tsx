@@ -160,7 +160,9 @@ export function RoleMapCanvas({
         },
       });
 
-      // Create edge to parent
+      // Create edge to parent with explicit handle IDs
+      // Handle IDs persist through collapse/expand since they're stored in map.groups (data model)
+      // and builtEdges is recalculated from the data model on each sync
       if (group.parentId) {
         const edgeLabel = group.edgeLabel || '';
         const edgeStyle = group.edgeStyle || {};
