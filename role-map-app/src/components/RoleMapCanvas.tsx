@@ -52,7 +52,7 @@ interface RoleMapCanvasProps {
   onSectionPositionChange: (sectionId: string, position: { x: number; y: number }, size?: { width: number; height: number }) => void;
   onEdgeStyleChange: (groupId: string, edgeLabel?: string, edgeStyle?: { dashed?: boolean; animated?: boolean; arrowAtStart?: boolean; noArrow?: boolean }) => void;
   onToggleSectionCollapse: (sectionId: string) => void;
-  onReparent: (childId: string, newParentId: string | null) => void;
+  onReparent: (childId: string, newParentId: string | null, sourceHandle?: string, targetHandle?: string) => void;
   onEditNode: (nodeId: string) => void;
   onDeleteNode: (nodeId: string) => void;
   onAddGroup: (parentId?: string, sectionId?: string) => void;
@@ -170,6 +170,8 @@ export function RoleMapCanvas({
           id: `${group.parentId}-${group.id}`,
           source: group.parentId,
           target: group.id,
+          ...(group.sourceHandle ? { sourceHandle: group.sourceHandle } : {}),
+          ...(group.targetHandle ? { targetHandle: group.targetHandle } : {}),
           type: 'custom',
           animated: edgeStyle.animated || false,
           reconnectable: true,
@@ -621,7 +623,12 @@ export function RoleMapCanvas({
     (oldEdge, newConnection) => {
       edgeReconnectSuccessful.current = true;
       if (newConnection.source && newConnection.target) {
-        onReparent(newConnection.target, newConnection.source);
+        onReparent(
+          newConnection.target,
+          newConnection.source,
+          newConnection.sourceHandle || undefined,
+          newConnection.targetHandle || undefined
+        );
       }
       setEdges((els) => reconnectEdge(oldEdge, newConnection, els));
     },
@@ -643,13 +650,18 @@ export function RoleMapCanvas({
   // Handle new connections (add parent relationship)
   const onConnect = useCallback(
     (connection: Connection) => {
-      console.log('Connection:', connection);
       if (connection.source && connection.target) {
-        onReparent(connection.target, connection.source);
+        // Save the handle IDs to the data model
+        onReparent(
+          connection.target,
+          connection.source,
+          connection.sourceHandle || undefined,
+          connection.targetHandle || undefined
+        );
         setEdges((eds) =>
           addEdge(
             {
-              id: `${connection.source}-${connection.target}-${connection.sourceHandle || 'default'}-${connection.targetHandle || 'default'}`,
+              id: `${connection.source}-${connection.target}`,
               source: connection.source,
               target: connection.target,
               sourceHandle: connection.sourceHandle,
