@@ -93,6 +93,9 @@ export function RoleMapCanvas({
     nodeType: 'pane',
   });
 
+  // Track when a connection is being dragged for visual feedback
+  const [isConnecting, setIsConnecting] = useState(false);
+
   const getSectionForGroup = useCallback(
     (sectionId: string): Section | undefined => {
       return map.sections.find((s) => s.id === sectionId);
@@ -621,6 +624,15 @@ export function RoleMapCanvas({
     edgeReconnectSuccessful.current = false;
   }, []);
 
+  // Connection drag visual feedback
+  const onConnectStart = useCallback(() => {
+    setIsConnecting(true);
+  }, []);
+
+  const onConnectEnd = useCallback(() => {
+    setIsConnecting(false);
+  }, []);
+
   const onReconnect: OnReconnect = useCallback(
     (oldEdge, newConnection) => {
       edgeReconnectSuccessful.current = true;
@@ -694,7 +706,7 @@ export function RoleMapCanvas({
   }, [map.sections, map.groups, showSecondaryRoles]);
 
   return (
-    <div className="canvas-container" ref={flowRef}>
+    <div className={`canvas-container ${isConnecting ? 'connecting' : ''}`} ref={flowRef}>
       <ReactFlow
         nodes={nodes}
         edges={edges}
@@ -704,6 +716,8 @@ export function RoleMapCanvas({
         onReconnect={onReconnect}
         onReconnectStart={onReconnectStart}
         onReconnectEnd={onReconnectEnd}
+        onConnectStart={onConnectStart}
+        onConnectEnd={onConnectEnd}
         onNodeClick={handleNodeClick}
         onNodeDoubleClick={handleNodeDoubleClick}
         onNodeContextMenu={handleNodeContextMenu}
