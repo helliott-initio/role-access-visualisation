@@ -728,6 +728,26 @@ html, body, #root {
   opacity: 0.8;
 }
 
+/* Connection line styling */
+.react-flow__connection-line {
+  stroke: #2d3e50;
+  stroke-width: 2;
+}
+
+.canvas-container.connecting .react-flow__connection-line {
+  stroke: #22c55e;
+  stroke-width: 3;
+}
+
+/* Cursor changes during connection */
+.canvas-container.connecting {
+  cursor: crosshair;
+}
+
+.canvas-container.connecting .react-flow__handle {
+  cursor: pointer;
+}
+
 /* React Flow overrides */
 .react-flow__node {
   cursor: grab;
