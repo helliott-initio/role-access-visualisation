@@ -664,8 +664,8 @@ export function RoleMapCanvas({
               id: `${connection.source}-${connection.target}`,
               source: connection.source,
               target: connection.target,
-              sourceHandle: connection.sourceHandle,
-              targetHandle: connection.targetHandle,
+              ...(connection.sourceHandle ? { sourceHandle: connection.sourceHandle } : {}),
+              ...(connection.targetHandle ? { targetHandle: connection.targetHandle } : {}),
               type: 'custom',
               data: {
                 color: '#666',
