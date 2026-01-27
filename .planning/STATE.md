@@ -5,7 +5,7 @@
 See: .planning/PROJECT.md (updated 2026-01-27)
 
 **Core value:** A flexible flowchart editor that just works — connectors go where you drag them, projects are easy to manage, and the interface is obvious without explanation.
-**Current focus:** Phase 2 - UX Polish (Phase 1 complete)
+**Current focus:** Phase 2 - Project Lifecycle (Phase 1 complete)
 
 ## Current Position
 
@@ -45,6 +45,7 @@ Recent decisions affecting current work:
 - **Fix React Flow handles before new features** — Broken connectors block productive use (from PROJECT.md)
 - **Use spread syntax for edge handle props** — Prevents React Flow from ignoring undefined handles (from 01-01)
 - **CSS-only visual feedback during connection** — Avoids React re-renders during drag operations (from 01-02)
+- **Derive edge path positions from handle IDs** — Ensures orthogonal paths calculate correctly (post-phase fix)
 
 ### Pending Todos
 

@@ -9,7 +9,7 @@ This roadmap transforms an existing React Flow app from "almost works" to "just 
 **Phase Numbering:**
 - Integer phases (1, 2, 3, 4): Planned milestone work
 
-- [ ] **Phase 1: Connector Fix** - Edges snap to actual drag handles and reconnection works
+- [x] **Phase 1: Connector Fix** - Edges snap to actual drag handles and reconnection works
 - [ ] **Phase 2: Project Lifecycle** - Launch experience and full tab management
 - [ ] **Phase 3: Undo/Redo** - Safe experimentation with reversible actions
 - [ ] **Phase 4: UX Polish** - Discoverable workflows and onboarding hints
@@ -28,8 +28,8 @@ This roadmap transforms an existing React Flow app from "almost works" to "just 
 **Plans**: 2 plans
 
 Plans:
-- [ ] 01-01-PLAN.md — Fix edge handle persistence (handles connect to exact positions and persist)
-- [ ] 01-02-PLAN.md — Add visual feedback during connection (handles highlight when dragging)
+- [x] 01-01-PLAN.md — Fix edge handle persistence (handles connect to exact positions and persist)
+- [x] 01-02-PLAN.md — Add visual feedback during connection (handles highlight when dragging)
 
 ### Phase 2: Project Lifecycle
 **Goal**: Users start with clean slate and can manage project tabs through their entire lifecycle.
@@ -83,11 +83,11 @@ Phases execute in numeric order: 1 → 2 → 3 → 4
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Connector Fix | 0/2 | Planned | - |
+| 1. Connector Fix | 2/2 | Complete | 2026-01-27 |
 | 2. Project Lifecycle | 0/? | Not started | - |
 | 3. Undo/Redo | 0/? | Not started | - |
 | 4. UX Polish | 0/? | Not started | - |
 
 ---
 *Roadmap created: 2026-01-27*
-*Last updated: 2026-01-27 (Phase 1 planned)*
+*Last updated: 2026-01-27 (Phase 1 complete)*
