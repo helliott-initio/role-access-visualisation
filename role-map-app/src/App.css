@@ -657,6 +657,20 @@ html, body, #root {
   padding: 4px;
 }
 
+/* Ensure edges render above section containers */
+.react-flow__edges {
+  z-index: 1 !important;
+}
+
+.react-flow__edge {
+  z-index: 1 !important;
+}
+
+/* Section containers render behind edges */
+.react-flow__node-sectionContainer {
+  z-index: -1 !important;
+}
+
 /* Handle styles */
 .react-flow__handle {
   opacity: 0;
@@ -797,6 +811,12 @@ html, body, #root {
   align-items: center;
   justify-content: space-between;
   color: white;
+  /* Allow edges to render above the header */
+  pointer-events: none;
+}
+
+.section-container-header > * {
+  pointer-events: auto;
 }
 
 .section-container-label {

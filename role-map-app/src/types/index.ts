@@ -14,6 +14,9 @@ export interface RoleGroup {
     arrowAtStart?: boolean; // If true, arrow at source end; if false/undefined, at target end
     noArrow?: boolean; // If true, no arrow at all
   };
+  // Handle IDs for edge connection points
+  sourceHandle?: string; // Handle ID on the parent node (e.g., 'top', 'bottom', 'left', 'right')
+  targetHandle?: string; // Handle ID on this node
 }
 
 export interface Section {

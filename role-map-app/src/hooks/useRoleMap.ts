@@ -183,7 +183,12 @@ export function useRoleMap() {
     }));
   }, []);
 
-  const reparentGroup = useCallback((childId: string, newParentId: string | null) => {
+  const reparentGroup = useCallback((
+    childId: string,
+    newParentId: string | null,
+    sourceHandle?: string,
+    targetHandle?: string
+  ) => {
     setState((prev) => ({
       ...prev,
       maps: prev.maps.map((map) => {
@@ -191,7 +196,14 @@ export function useRoleMap() {
         return {
           ...map,
           groups: map.groups.map((g) =>
-            g.id === childId ? { ...g, parentId: newParentId } : g
+            g.id === childId
+              ? {
+                  ...g,
+                  parentId: newParentId,
+                  sourceHandle: newParentId ? sourceHandle : undefined,
+                  targetHandle: newParentId ? targetHandle : undefined,
+                }
+              : g
           ),
         };
       }),

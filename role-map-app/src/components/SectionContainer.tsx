@@ -28,7 +28,12 @@ function SectionContainer({ id, data, selected }: NodeProps) {
     }
   }, [width, height, isResizing]);
 
-  const handleStyle = {
+  // Header is ~36px tall (padding 8px + content + padding 8px)
+  const headerHeight = 36;
+  const headerCenter = headerHeight / 2;
+
+  // Base handle style - positioned on the header, not the full section
+  const baseHandleStyle = {
     background: 'white',
     width: 10,
     height: 10,
@@ -36,10 +41,6 @@ function SectionContainer({ id, data, selected }: NodeProps) {
     opacity: selected ? 1 : 0,
     transition: 'opacity 0.2s',
   };
-
-  // Header is ~36px tall (padding 8px + content + padding 8px)
-  const headerHeight = 36;
-  const headerCenter = headerHeight / 2;
 
   return (
     <>
@@ -59,24 +60,25 @@ function SectionContainer({ id, data, selected }: NodeProps) {
         </div>
       )}
 
-      {/* Section handles - positioned on the header bar */}
-      {/* Top center of header */}
+      {/* Section handles - all positioned relative to the header bar */}
+      {/* Top center of header - default Position.Top works */}
       <Handle
         type="source"
         position={Position.Top}
         id="top"
-        style={handleStyle}
+        style={baseHandleStyle}
         isConnectableStart={true}
         isConnectableEnd={true}
       />
-      {/* Bottom of header (not bottom of section) */}
+      {/* Bottom of header - use Position.Top with manual offset to avoid Position.Bottom going to section bottom */}
       <Handle
         type="source"
-        position={Position.Bottom}
+        position={Position.Top}
         id="header-bottom"
         style={{
-          ...handleStyle,
+          ...baseHandleStyle,
           top: headerHeight,
+          transform: 'translate(-50%, -50%)',
         }}
         isConnectableStart={true}
         isConnectableEnd={true}
@@ -86,7 +88,7 @@ function SectionContainer({ id, data, selected }: NodeProps) {
         type="source"
         position={Position.Left}
         id="left"
-        style={{ ...handleStyle, top: headerCenter }}
+        style={{ ...baseHandleStyle, top: headerCenter }}
         isConnectableStart={true}
         isConnectableEnd={true}
       />
@@ -95,7 +97,7 @@ function SectionContainer({ id, data, selected }: NodeProps) {
         type="source"
         position={Position.Right}
         id="right"
-        style={{ ...handleStyle, top: headerCenter }}
+        style={{ ...baseHandleStyle, top: headerCenter }}
         isConnectableStart={true}
         isConnectableEnd={true}
       />

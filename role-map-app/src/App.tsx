@@ -160,8 +160,8 @@ function App() {
   }, [exportData]);
 
   const handleReparent = useCallback(
-    (childId: string, newParentId: string | null) => {
-      reparentGroup(childId, newParentId);
+    (childId: string, newParentId: string | null, sourceHandle?: string, targetHandle?: string) => {
+      reparentGroup(childId, newParentId, sourceHandle, targetHandle);
     },
     [reparentGroup]
   );

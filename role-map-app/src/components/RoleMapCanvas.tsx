@@ -739,8 +739,10 @@ export function RoleMapCanvas({
         maxZoom={2}
         snapToGrid
         snapGrid={[15, 15]}
+        elevateEdgesOnSelect
         defaultEdgeOptions={{
           type: 'custom',
+          zIndex: 1000,
         }}
       >
         <Background color="#e0e0e0" gap={20} />
