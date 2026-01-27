@@ -26,38 +26,51 @@ function getPositionFromHandleId(handleId: string | null | undefined, fallback: 
   }
 }
 
-// Calculate optimal offset to minimize unnecessary bends
-function calculateOffset(
+// Threshold for considering nodes "aligned" (in pixels)
+const ALIGNMENT_THRESHOLD = 30;
+
+// Check if a straight line path is appropriate
+function canUseStraightPath(
   sourceX: number,
   sourceY: number,
   targetX: number,
   targetY: number,
   sourcePos: Position,
   targetPos: Position
-): number {
+): boolean {
   const dx = Math.abs(targetX - sourceX);
   const dy = Math.abs(targetY - sourceY);
 
-  // Check if handles are on compatible sides for a direct path
-  const isVerticalSource = sourcePos === Position.Top || sourcePos === Position.Bottom;
-  const isVerticalTarget = targetPos === Position.Top || targetPos === Position.Bottom;
-
-  // When both are vertical (top/bottom), use minimal offset if horizontally aligned
-  if (isVerticalSource && isVerticalTarget) {
-    // If mostly vertical movement, keep offset small
-    if (dx < 50) return 10;
-    // Otherwise, use half the horizontal distance for a cleaner bend
-    return Math.min(dx / 2, 30);
+  // Vertical alignment: bottom→top or top→bottom when X coordinates are close
+  if (
+    (sourcePos === Position.Bottom && targetPos === Position.Top && sourceY < targetY) ||
+    (sourcePos === Position.Top && targetPos === Position.Bottom && sourceY > targetY)
+  ) {
+    return dx <= ALIGNMENT_THRESHOLD;
   }
 
-  // When both are horizontal (left/right), use minimal offset if vertically aligned
-  if (!isVerticalSource && !isVerticalTarget) {
-    if (dy < 50) return 10;
-    return Math.min(dy / 2, 30);
+  // Horizontal alignment: left→right or right→left when Y coordinates are close
+  if (
+    (sourcePos === Position.Right && targetPos === Position.Left && sourceX < targetX) ||
+    (sourcePos === Position.Left && targetPos === Position.Right && sourceX > targetX)
+  ) {
+    return dy <= ALIGNMENT_THRESHOLD;
   }
 
-  // Mixed orientations (e.g., top to left) - use smaller offset for tighter corners
-  return Math.min(Math.min(dx, dy) / 3, 25);
+  return false;
+}
+
+// Generate a straight path between two points
+function getStraightPath(
+  sourceX: number,
+  sourceY: number,
+  targetX: number,
+  targetY: number
+): [string, number, number] {
+  const path = `M ${sourceX} ${sourceY} L ${targetX} ${targetY}`;
+  const labelX = (sourceX + targetX) / 2;
+  const labelY = (sourceY + targetY) / 2;
+  return [path, labelX, labelY];
 }
 
 export function CustomEdge({
@@ -84,22 +97,36 @@ export function CustomEdge({
   const effectiveSourcePosition = getPositionFromHandleId(sourceHandleId, sourcePosition);
   const effectiveTargetPosition = getPositionFromHandleId(targetHandleId, targetPosition);
 
-  // Calculate dynamic offset based on geometry to minimize bends
-  const offset = calculateOffset(
+  // Check if we can use a straight line (nodes are aligned)
+  const useStraight = canUseStraightPath(
     sourceX, sourceY, targetX, targetY,
     effectiveSourcePosition, effectiveTargetPosition
   );
 
-  const [edgePath, labelX, labelY] = getSmoothStepPath({
-    sourceX,
-    sourceY,
-    targetX,
-    targetY,
-    sourcePosition: effectiveSourcePosition,
-    targetPosition: effectiveTargetPosition,
-    borderRadius: 8,
-    offset,
-  });
+  let edgePath: string;
+  let labelX: number;
+  let labelY: number;
+
+  if (useStraight) {
+    // Use straight line for aligned nodes
+    [edgePath, labelX, labelY] = getStraightPath(sourceX, sourceY, targetX, targetY);
+  } else {
+    // Use orthogonal path with minimal offset
+    const dx = Math.abs(targetX - sourceX);
+    const dy = Math.abs(targetY - sourceY);
+    const offset = Math.min(Math.max(Math.min(dx, dy) / 4, 10), 25);
+
+    [edgePath, labelX, labelY] = getSmoothStepPath({
+      sourceX,
+      sourceY,
+      targetX,
+      targetY,
+      sourcePosition: effectiveSourcePosition,
+      targetPosition: effectiveTargetPosition,
+      borderRadius: 8,
+      offset,
+    });
+  }
 
   return (
     <>
