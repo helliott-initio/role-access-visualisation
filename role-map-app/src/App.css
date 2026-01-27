@@ -682,6 +682,52 @@ html, body, #root {
   background: #22c55e !important;
 }
 
+/* Handle highlighting during connection drag */
+.canvas-container.connecting .react-flow__handle {
+  opacity: 1 !important;
+  transform: scale(1.5);
+  transition: all 0.15s ease;
+}
+
+.canvas-container.connecting .react-flow__handle::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 20px;
+  height: 20px;
+  border: 2px solid currentColor;
+  border-radius: 50%;
+  opacity: 0.5;
+  animation: pulse-handle 1s ease-in-out infinite;
+}
+
+@keyframes pulse-handle {
+  0%, 100% {
+    transform: translate(-50%, -50%) scale(1);
+    opacity: 0.5;
+  }
+  50% {
+    transform: translate(-50%, -50%) scale(1.3);
+    opacity: 0.2;
+  }
+}
+
+/* Highlight valid drop targets more prominently */
+.canvas-container.connecting .react-flow__handle.connectingto,
+.canvas-container.connecting .react-flow__handle.connectingfrom {
+  background: #22c55e !important;
+  transform: scale(2);
+}
+
+.canvas-container.connecting .react-flow__handle.connectingto::after,
+.canvas-container.connecting .react-flow__handle.connectingfrom::after {
+  border-color: #22c55e;
+  animation: none;
+  opacity: 0.8;
+}
+
 /* React Flow overrides */
 .react-flow__node {
   cursor: grab;
