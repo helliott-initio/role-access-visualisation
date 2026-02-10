@@ -730,6 +730,14 @@ html, body, #root {
   cursor: pointer;
 }
 
+/* Alignment guide lines */
+.alignment-guide-line {
+  stroke: #3b82f6;
+  stroke-width: 1;
+  stroke-dasharray: 4 3;
+  opacity: 0.7;
+}
+
 /* React Flow overrides */
 .react-flow__node {
   cursor: grab;

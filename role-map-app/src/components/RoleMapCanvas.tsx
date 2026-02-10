@@ -6,6 +6,7 @@ import {
   MiniMap,
   useNodesState,
   useEdgesState,
+  useReactFlow,
   MarkerType,
   Panel,
   reconnectEdge,
@@ -24,6 +25,7 @@ import CustomEdge from './CustomEdge';
 import { ContextMenu } from './ContextMenu';
 import { getLayoutedElements } from '../utils/layout';
 import type { RoleMap, RoleGroup, Section, MapConnection } from '../types';
+import { findAlignments, type GuideLine } from '../utils/snapAlignment';
 
 const nodeTypes = {
   roleNode: RoleNode,
@@ -34,6 +36,44 @@ const nodeTypes = {
 const edgeTypes = {
   custom: CustomEdge,
 };
+
+// Renders alignment guide lines in the React Flow viewport
+function AlignmentGuides({ guideLines }: { guideLines: GuideLine[] }) {
+  const { getViewport } = useReactFlow();
+  const viewport = getViewport();
+
+  // Convert flow coordinates to screen coordinates
+  const toScreen = (val: number, axis: 'x' | 'y') => {
+    if (axis === 'x') return val * viewport.zoom + viewport.x;
+    return val * viewport.zoom + viewport.y;
+  };
+
+  return (
+    <svg className="alignment-guides" style={{ position: 'absolute', inset: 0, pointerEvents: 'none', zIndex: 1001 }}>
+      {guideLines.map((line, i) => (
+        line.orientation === 'vertical' ? (
+          <line
+            key={`v-${i}`}
+            x1={toScreen(line.position, 'x')}
+            y1={0}
+            x2={toScreen(line.position, 'x')}
+            y2="100%"
+            className="alignment-guide-line"
+          />
+        ) : (
+          <line
+            key={`h-${i}`}
+            x1={0}
+            y1={toScreen(line.position, 'y')}
+            x2="100%"
+            y2={toScreen(line.position, 'y')}
+            className="alignment-guide-line"
+          />
+        )
+      ))}
+    </svg>
+  );
+}
 
 interface ContextMenuState {
   show: boolean;
@@ -103,6 +143,9 @@ export function RoleMapCanvas({
 
   // Track when a connection is being dragged for visual feedback
   const [isConnecting, setIsConnecting] = useState(false);
+
+  // Alignment guide lines shown during node drag
+  const [guideLines, setGuideLines] = useState<GuideLine[]>([]);
 
   const getSectionForGroup = useCallback(
     (sectionId: string): Section | undefined => {
@@ -828,6 +871,35 @@ export function RoleMapCanvas({
     [setEdges, onReparent]
   );
 
+  // Smart alignment snapping during node drag
+  const handleNodeDrag = useCallback(
+    (_: React.MouseEvent, dragNode: Node) => {
+      if (dragNode.id.startsWith('section-')) {
+        setGuideLines([]);
+        return;
+      }
+
+      const result = findAlignments(dragNode, nodes);
+
+      if (result.snapX !== null || result.snapY !== null) {
+        const snappedPos = {
+          x: result.snapX ?? dragNode.position.x,
+          y: result.snapY ?? dragNode.position.y,
+        };
+        setNodes(nds =>
+          nds.map(n => n.id === dragNode.id ? { ...n, position: snappedPos } : n)
+        );
+      }
+
+      setGuideLines(result.guideLines);
+    },
+    [nodes, setNodes]
+  );
+
+  const handleNodeDragStop = useCallback(() => {
+    setGuideLines([]);
+  }, []);
+
   // Handle new connections (add parent relationship or standalone connection)
   const onConnect = useCallback(
     (connection: Connection) => {
@@ -936,6 +1008,8 @@ export function RoleMapCanvas({
         onNodeDoubleClick={handleNodeDoubleClick}
         onNodeContextMenu={handleNodeContextMenu}
         onEdgeContextMenu={handleEdgeContextMenu}
+        onNodeDrag={handleNodeDrag}
+        onNodeDragStop={handleNodeDragStop}
         onPaneClick={handlePaneClick}
         onPaneContextMenu={handlePaneContextMenu}
         edgesReconnectable
@@ -958,6 +1032,7 @@ export function RoleMapCanvas({
         }}
       >
         <Background color="#e0e0e0" gap={20} />
+        {guideLines.length > 0 && <AlignmentGuides guideLines={guideLines} />}
         <Controls />
         <MiniMap
           nodeColor={(node) => {
