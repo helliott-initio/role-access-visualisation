@@ -10,6 +10,8 @@ const FILE_PICKER_TYPES = [
 
 const LAST_FILE_KEY = 'role-map-last-file';
 
+export type SaveStatus = 'idle' | 'unsaved' | 'saving' | 'saved' | 'error';
+
 async function writeToHandle(handle: FileSystemFileHandle, maps: RoleMap[]): Promise<void> {
   const writable = await handle.createWritable();
   try {
@@ -25,9 +27,12 @@ export function useFileHandle(maps: RoleMap[]) {
   const fileHandleRef = useRef<FileSystemFileHandle | null>(null);
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isInitialLoadRef = useRef(false);
+  // Always keep the latest maps in a ref so the debounced write uses fresh data
+  const mapsRef = useRef(maps);
+  mapsRef.current = maps;
 
   const [fileName, setFileName] = useState<string | null>(null);
-  const [isSaving, setIsSaving] = useState(false);
+  const [saveStatus, setSaveStatus] = useState<SaveStatus>('idle');
   const [saveError, setSaveError] = useState<string | null>(null);
 
   // Remember the last file the user was working with
@@ -65,12 +70,14 @@ export function useFileHandle(maps: RoleMap[]) {
       setFileName(handle.name);
       setLastFileName(handle.name);
       localStorage.setItem(LAST_FILE_KEY, handle.name);
+      setSaveStatus('saved');
       setSaveError(null);
       return mapsArr as RoleMap[];
     } catch (err: unknown) {
       if (err instanceof DOMException && err.name === 'AbortError') return null;
       console.error('Failed to open file:', err);
       setSaveError(String(err));
+      setSaveStatus('error');
       return null;
     }
   }, []);
@@ -85,14 +92,17 @@ export function useFileHandle(maps: RoleMap[]) {
       setFileName(handle.name);
       setLastFileName(handle.name);
       localStorage.setItem(LAST_FILE_KEY, handle.name);
+      setSaveStatus('saving');
       setSaveError(null);
 
       await writeToHandle(handle, currentMaps);
+      setSaveStatus('saved');
       return true;
     } catch (err: unknown) {
       if (err instanceof DOMException && err.name === 'AbortError') return false;
       console.error('Failed to create file:', err);
       setSaveError(String(err));
+      setSaveStatus('error');
       return false;
     }
   }, []);
@@ -105,11 +115,11 @@ export function useFileHandle(maps: RoleMap[]) {
     setFileName(null);
     setLastFileName(null);
     localStorage.removeItem(LAST_FILE_KEY);
+    setSaveStatus('idle');
     setSaveError(null);
-    setIsSaving(false);
   }, []);
 
-  // Debounced auto-save
+  // Debounced auto-save: mark unsaved immediately, write after 500ms of quiet
   useEffect(() => {
     if (!fileHandleRef.current) return;
 
@@ -119,6 +129,9 @@ export function useFileHandle(maps: RoleMap[]) {
       return;
     }
 
+    // Mark as unsaved immediately when data changes
+    setSaveStatus('unsaved');
+
     if (saveTimerRef.current) {
       clearTimeout(saveTimerRef.current);
     }
@@ -127,21 +140,21 @@ export function useFileHandle(maps: RoleMap[]) {
       const handle = fileHandleRef.current;
       if (!handle) return;
 
-      setIsSaving(true);
+      setSaveStatus('saving');
       try {
-        await writeToHandle(handle, maps);
+        // Use ref to get the latest maps, not the stale closure value
+        await writeToHandle(handle, mapsRef.current);
+        setSaveStatus('saved');
         setSaveError(null);
       } catch (err) {
         console.error('Auto-save failed:', err);
-        setSaveError(
-          err instanceof DOMException && err.name === 'NotAllowedError'
-            ? 'Permission denied. Re-open the file to continue saving.'
-            : `Save failed: ${String(err)}`
-        );
+        const message = err instanceof DOMException && err.name === 'NotAllowedError'
+          ? 'Permission denied. Re-open the file to continue saving.'
+          : `Save failed: ${String(err)}`;
+        setSaveError(message);
+        setSaveStatus('error');
         fileHandleRef.current = null;
         setFileName(null);
-      } finally {
-        setIsSaving(false);
       }
     }, 500);
 
@@ -159,7 +172,7 @@ export function useFileHandle(maps: RoleMap[]) {
     fileName,
     lastFileName,
     needsReopen,
-    isSaving,
+    saveStatus,
     saveError,
     isSupported,
     openFile,

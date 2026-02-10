@@ -1,4 +1,5 @@
 import type { RoleMap } from '../types';
+import type { SaveStatus } from '../hooks/useFileHandle';
 
 interface ToolbarProps {
   maps: RoleMap[];
@@ -20,9 +21,24 @@ interface ToolbarProps {
   fileName: string | null;
   lastFileName: string | null;
   needsReopen: boolean;
-  isSaving: boolean;
+  saveStatus: SaveStatus;
   saveError: string | null;
   isFileSystemSupported: boolean;
+}
+
+function SaveStatusIndicator({ status, error }: { status: SaveStatus; error: string | null }) {
+  switch (status) {
+    case 'saving':
+      return <span className="save-status saving">Saving...</span>;
+    case 'saved':
+      return <span className="save-status saved">All changes saved</span>;
+    case 'unsaved':
+      return <span className="save-status unsaved">Unsaved changes</span>;
+    case 'error':
+      return <span className="save-status error" title={error || undefined}>Save failed</span>;
+    default:
+      return null;
+  }
 }
 
 export function Toolbar({
@@ -42,9 +58,7 @@ export function Toolbar({
   onNewFile,
   onCloseFile,
   fileName,
-  lastFileName: _lastFileName,
-  needsReopen: _needsReopen,
-  isSaving,
+  saveStatus,
   saveError,
   isFileSystemSupported,
 }: ToolbarProps) {
@@ -126,15 +140,13 @@ export function Toolbar({
         {isFileSystemSupported && (
           <>
             {fileName ? (
-              <span className="file-indicator" title={saveError || undefined}>
+              <span className="file-indicator">
                 <span className="file-name">{fileName}</span>
-                {isSaving && <span className="save-status">Saving...</span>}
-                {saveError && <span className="save-status error">Error</span>}
-                {!isSaving && !saveError && <span className="save-status ok">Saved</span>}
+                <SaveStatusIndicator status={saveStatus} error={saveError} />
                 <button
                   className="file-close-btn"
                   onClick={onCloseFile}
-                  title="Close file (revert to local storage)"
+                  title="Close file"
                 >
                   &times;
                 </button>

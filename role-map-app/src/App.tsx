@@ -42,7 +42,7 @@ function App() {
     fileName,
     lastFileName,
     needsReopen,
-    isSaving,
+    saveStatus,
     saveError,
     isSupported: isFileSystemSupported,
     openFile,
@@ -255,7 +255,7 @@ function App() {
         fileName={fileName}
         lastFileName={lastFileName}
         needsReopen={needsReopen}
-        isSaving={isSaving}
+        saveStatus={saveStatus}
         saveError={saveError}
         isFileSystemSupported={isFileSystemSupported}
       />
