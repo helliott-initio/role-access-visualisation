@@ -13,6 +13,14 @@ interface ToolbarProps {
   onDeleteMap: (mapId: string) => void;
   onSaveData: () => void;
   onLoadData: (json: string) => boolean;
+  // File System Access API props
+  onOpenFile: () => void;
+  onNewFile: () => void;
+  onCloseFile: () => void;
+  fileName: string | null;
+  isSaving: boolean;
+  saveError: string | null;
+  isFileSystemSupported: boolean;
 }
 
 export function Toolbar({
@@ -28,6 +36,13 @@ export function Toolbar({
   onDeleteMap,
   onSaveData,
   onLoadData,
+  onOpenFile,
+  onNewFile,
+  onCloseFile,
+  fileName,
+  isSaving,
+  saveError,
+  isFileSystemSupported,
 }: ToolbarProps) {
   const handleLoadFile = () => {
     const input = document.createElement('input');
@@ -104,6 +119,38 @@ export function Toolbar({
       </div>
 
       <div className="toolbar-right">
+        {isFileSystemSupported && (
+          <>
+            {fileName ? (
+              <span className="file-indicator" title={saveError || undefined}>
+                <span className="file-name">{fileName}</span>
+                {isSaving && <span className="save-status">Saving...</span>}
+                {saveError && <span className="save-status error">Error</span>}
+                {!isSaving && !saveError && <span className="save-status ok">Saved</span>}
+                <button
+                  className="file-close-btn"
+                  onClick={onCloseFile}
+                  title="Close file (revert to local storage)"
+                >
+                  &times;
+                </button>
+              </span>
+            ) : (
+              <>
+                <button className="toolbar-btn" onClick={onOpenFile} title="Open a .json file for live editing">
+                  <span className="btn-icon">📁</span>
+                  Open File
+                </button>
+                <button className="toolbar-btn" onClick={onNewFile} title="Create a new .json file">
+                  <span className="btn-icon">📄</span>
+                  New File
+                </button>
+              </>
+            )}
+            <span className="toolbar-divider" />
+          </>
+        )}
+
         <label className="toggle-label">
           <input
             type="checkbox"
@@ -112,7 +159,7 @@ export function Toolbar({
           />
           <span className="toggle-text">Show Secondary Roles</span>
         </label>
-        <button className="toolbar-btn" onClick={onSaveData} title="Save data to JSON file">
+        <button className="toolbar-btn" onClick={onSaveData} title="Download as JSON (manual backup)">
           <span className="btn-icon">💾</span>
           Save
         </button>

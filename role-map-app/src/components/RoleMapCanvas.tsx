@@ -367,7 +367,8 @@ export function RoleMapCanvas({
   const getInitialNodes = useCallback(() => {
     const roleNodes = builtNodes.filter(n => n.type !== 'sectionContainer');
     const sectionNodes = builtNodes.filter(n => n.type === 'sectionContainer');
-    const hasPositions = roleNodes.some((n) => n.position.x !== 0 || n.position.y !== 0);
+    const hasPositions = roleNodes.some((n) => n.position.x !== 0 || n.position.y !== 0)
+      || map.groups.some((g) => g.position && (g.position.x !== 0 || g.position.y !== 0));
 
     if (!hasPositions && roleNodes.length > 0 && !initialLayoutApplied.current) {
       initialLayoutApplied.current = true;

@@ -2,6 +2,7 @@ import { useState, useCallback } from 'react';
 import { ReactFlowProvider } from '@xyflow/react';
 
 import { useRoleMap } from './hooks/useRoleMap';
+import { useFileHandle } from './hooks/useFileHandle';
 import { RoleMapCanvas, exportToPDF } from './components/RoleMapCanvas';
 import { Toolbar } from './components/Toolbar';
 import { EditModal } from './components/EditModal';
@@ -32,9 +33,20 @@ function App() {
     updateConnectionStyle,
     exportData,
     importData,
+    loadMaps,
     addMap,
     deleteMap,
   } = useRoleMap();
+
+  const {
+    fileName,
+    isSaving,
+    saveError,
+    isSupported: isFileSystemSupported,
+    openFile,
+    newFile,
+    closeFile,
+  } = useFileHandle(state.maps);
 
   const [showEditModal, setShowEditModal] = useState(false);
   const [showSectionModal, setShowSectionModal] = useState(false);
@@ -185,6 +197,17 @@ function App() {
     URL.revokeObjectURL(url);
   }, [exportData]);
 
+  const handleOpenFile = useCallback(async () => {
+    const maps = await openFile();
+    if (maps) {
+      loadMaps(maps);
+    }
+  }, [openFile, loadMaps]);
+
+  const handleNewFile = useCallback(async () => {
+    await newFile(state.maps);
+  }, [newFile, state.maps]);
+
   const handleReparent = useCallback(
     (childId: string, newParentId: string | null, sourceHandle?: string, targetHandle?: string) => {
       reparentGroup(childId, newParentId, sourceHandle, targetHandle);
@@ -224,6 +247,13 @@ function App() {
         onDeleteMap={deleteMap}
         onSaveData={handleSaveData}
         onLoadData={importData}
+        onOpenFile={handleOpenFile}
+        onNewFile={handleNewFile}
+        onCloseFile={closeFile}
+        fileName={fileName}
+        isSaving={isSaving}
+        saveError={saveError}
+        isFileSystemSupported={isFileSystemSupported}
       />
 
       <main className="app-main" id="role-map-canvas">

@@ -983,3 +983,59 @@ html, body, #root {
     display: none;
   }
 }
+
+/* File System indicator */
+.file-indicator {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  background: #f0f5f8;
+  border: 1px solid #d0dbe4;
+  border-radius: 6px;
+  font-size: 0.8rem;
+}
+
+.file-name {
+  font-weight: 500;
+  color: #2d3e50;
+  max-width: 160px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.save-status {
+  font-size: 0.7rem;
+  color: #888;
+  white-space: nowrap;
+}
+
+.save-status.ok {
+  color: #28a745;
+}
+
+.save-status.error {
+  color: #dc3545;
+}
+
+.file-close-btn {
+  background: none;
+  border: none;
+  font-size: 1rem;
+  color: #999;
+  cursor: pointer;
+  padding: 0 2px;
+  line-height: 1;
+}
+
+.file-close-btn:hover {
+  color: #dc3545;
+}
+
+.toolbar-divider {
+  width: 1px;
+  height: 24px;
+  background: #e0e0e0;
+  margin: 0 4px;
+}

@@ -382,6 +382,14 @@ export function useRoleMap() {
     }
   }, []);
 
+  const loadMaps = useCallback((maps: RoleMap[]) => {
+    setState((prev) => ({
+      ...prev,
+      maps,
+      activeMapId: maps[0]?.id || prev.activeMapId,
+    }));
+  }, []);
+
   const resetToDefault = useCallback(() => {
     setState(initialState);
     localStorage.removeItem(STORAGE_KEY);
@@ -410,6 +418,7 @@ export function useRoleMap() {
     deleteMap,
     exportData,
     importData,
+    loadMaps,
     resetToDefault,
   };
 }
