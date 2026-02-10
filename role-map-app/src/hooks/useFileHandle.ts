@@ -155,28 +155,14 @@ export function useFileHandle(maps: RoleMap[]) {
 
   // Debounced auto-save: compare JSON content on every render to detect real changes.
   useEffect(() => {
-    // === DIAGNOSTIC: log on EVERY tick so we can verify the effect runs ===
-    const hasHandle = !!fileHandleRef.current;
-    const currentJson = hasHandle ? JSON.stringify(maps) : '';
-    const jsonMatch = hasHandle ? (currentJson === lastSavedJsonRef.current) : false;
-    console.log('[auto-save:tick]', {
-      hasHandle,
-      jsonMatch,
-      groups: maps[0]?.groups?.length,
-      sections: maps[0]?.sections?.length,
-      currentLen: currentJson.length,
-      savedLen: lastSavedJsonRef.current.length,
-    });
+    if (!fileHandleRef.current) return;
 
-    if (!hasHandle) return;
-    if (jsonMatch) return;
+    const currentJson = JSON.stringify(maps);
+    if (currentJson === lastSavedJsonRef.current) return;
 
     // Data actually changed — update lastSavedJsonRef immediately so that
     // re-renders caused by setSaveStatus don't re-trigger this branch.
     lastSavedJsonRef.current = currentJson;
-
-    console.log('[auto-save] CHANGE DETECTED, scheduling write…',
-      { sections: maps[0]?.sections?.length, groups: maps[0]?.groups?.length });
     setSaveStatus('unsaved');
 
     if (saveTimerRef.current) {
@@ -192,12 +178,9 @@ export function useFileHandle(maps: RoleMap[]) {
         const latestMaps = mapsRef.current;
         await writeToHandle(handle, latestMaps);
         lastSavedJsonRef.current = JSON.stringify(latestMaps);
-        console.log('[auto-save] write complete',
-          { sections: latestMaps[0]?.sections?.length, groups: latestMaps[0]?.groups?.length });
         setSaveStatus('saved');
         setSaveError(null);
       } catch (err) {
-        console.error('[auto-save] write FAILED:', err);
         // Reset so the next change retries
         lastSavedJsonRef.current = '';
         const message = err instanceof DOMException && err.name === 'NotAllowedError'

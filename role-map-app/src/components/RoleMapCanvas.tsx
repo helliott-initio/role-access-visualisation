@@ -429,6 +429,24 @@ export function RoleMapCanvas({
 
   const handleNodesChange = useCallback(
     (changes: NodeChange[]) => {
+      // Intercept remove changes — route through app delete callbacks instead
+      // of letting React Flow remove from its internal state silently.
+      const removeChanges = changes.filter(c => c.type === 'remove');
+      if (removeChanges.length > 0) {
+        for (const change of removeChanges) {
+          if (change.id.startsWith('section-')) {
+            onDeleteSection(change.id.replace('section-', ''));
+          } else {
+            onDeleteNode(change.id);
+          }
+        }
+        // Filter out removes so React Flow doesn't process them — the app
+        // callbacks update the data model, which rebuilds the canvas.
+        const nonRemoveChanges = changes.filter(c => c.type !== 'remove');
+        if (nonRemoveChanges.length === 0) return;
+        changes = nonRemoveChanges;
+      }
+
       // On drag-end, replace the raw mouse position with the alignment-snapped
       // position BEFORE React Flow applies it. This prevents the "jog on release"
       // where onNodesChange would apply the raw position, undoing the snap.
@@ -524,7 +542,7 @@ export function RoleMapCanvas({
         }
       });
     },
-    [onNodesChange, onNodePositionChange, onSectionPositionChange, setNodes, map.groups, map.sections]
+    [onNodesChange, onNodePositionChange, onSectionPositionChange, onDeleteNode, onDeleteSection, setNodes, map.groups, map.sections]
   );
 
   const handleNodeClick = useCallback(
