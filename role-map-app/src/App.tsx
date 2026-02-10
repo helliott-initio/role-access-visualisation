@@ -43,6 +43,7 @@ function App() {
   const [isNewSection, setIsNewSection] = useState(false);
   const [editingSection, setEditingSection] = useState<Section | null>(null);
   const [newGroupDefaults, setNewGroupDefaults] = useState<{ parentId?: string; sectionId?: string }>({});
+  const [defaultParentSectionId, setDefaultParentSectionId] = useState<string | undefined>();
 
   const selectedGroup = state.selectedNodeId
     ? activeMap.groups.find((g) => g.id === state.selectedNodeId) || null
@@ -86,6 +87,14 @@ function App() {
   const handleAddSection = useCallback(() => {
     setEditingSection(null);
     setIsNewSection(true);
+    setDefaultParentSectionId(undefined);
+    setShowSectionModal(true);
+  }, []);
+
+  const handleAddDepartment = useCallback((parentSectionId: string) => {
+    setEditingSection(null);
+    setIsNewSection(true);
+    setDefaultParentSectionId(parentSectionId);
     setShowSectionModal(true);
   }, []);
 
@@ -113,12 +122,26 @@ function App() {
       if (isNewGroup && newGroupDefaults.sectionId && !group.sectionId) {
         group = { ...group, sectionId: newGroupDefaults.sectionId };
       }
+
+      // Position new child groups below their parent with a bottom→top connection
+      if (isNewGroup && group.parentId && !group.position) {
+        const parent = activeMap.groups.find(g => g.id === group.parentId);
+        if (parent?.position) {
+          group = {
+            ...group,
+            position: { x: parent.position.x, y: parent.position.y + 120 },
+            sourceHandle: 'bottom',
+            targetHandle: 'top',
+          };
+        }
+      }
+
       updateGroup(group);
       setShowEditModal(false);
       setSelectedNode(null);
       setNewGroupDefaults({});
     },
-    [updateGroup, setSelectedNode, isNewGroup, newGroupDefaults]
+    [updateGroup, setSelectedNode, isNewGroup, newGroupDefaults, activeMap.groups]
   );
 
   const handleDeleteGroup = useCallback(
@@ -224,6 +247,7 @@ function App() {
             onAddSection={handleAddSection}
             onEditSection={handleEditSection}
             onDeleteSection={handleDeleteSectionDirect}
+            onAddDepartment={handleAddDepartment}
           />
         </ReactFlowProvider>
       </main>
@@ -242,19 +266,24 @@ function App() {
             setNewGroupDefaults({});
           }}
           isNew={isNewGroup}
+          defaultSectionId={newGroupDefaults.sectionId}
         />
       )}
 
       {showSectionModal && (
         <SectionModal
           section={isNewSection ? null : editingSection}
+          sections={activeMap.sections}
+          domain={activeMap.domain}
           onSave={handleSaveSection}
           onDelete={handleDeleteSection}
           onClose={() => {
             setShowSectionModal(false);
             setEditingSection(null);
+            setDefaultParentSectionId(undefined);
           }}
           isNew={isNewSection}
+          defaultParentSectionId={defaultParentSectionId}
         />
       )}
 

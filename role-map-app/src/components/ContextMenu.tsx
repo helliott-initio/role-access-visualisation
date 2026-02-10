@@ -10,6 +10,7 @@ interface ContextMenuProps {
   onAddChild: () => void;
   onAddGroup: () => void;
   onAddSection: () => void;
+  onAddDepartment?: () => void;
   onAddLabel?: () => void;
   onRemoveLabel?: () => void;
   onReverseDirection?: () => void;
@@ -18,6 +19,7 @@ interface ContextMenuProps {
   onToggleArrow?: () => void;
   onMatchWidth?: () => void;
   onMatchHeight?: () => void;
+  onSetSize?: () => void;
   hasLabel?: boolean;
   isDashed?: boolean;
   isAnimated?: boolean;
@@ -34,6 +36,7 @@ export function ContextMenu({
   onAddChild,
   onAddGroup,
   onAddSection,
+  onAddDepartment,
   onAddLabel,
   onRemoveLabel,
   onReverseDirection,
@@ -42,6 +45,7 @@ export function ContextMenu({
   onToggleArrow,
   onMatchWidth,
   onMatchHeight,
+  onSetSize,
   hasLabel,
   isDashed,
   isAnimated,
@@ -112,6 +116,12 @@ export function ContextMenu({
               <span className="context-menu-icon">+</span>
               Add Group to Section
             </button>
+            {onAddDepartment && (
+              <button className="context-menu-item" onClick={() => handleClick(onAddDepartment)}>
+                <span className="context-menu-icon">▢</span>
+                Add Department
+              </button>
+            )}
             <div className="context-menu-divider" />
             {onMatchWidth && (
               <button className="context-menu-item" onClick={() => handleClick(onMatchWidth)}>
@@ -123,6 +133,12 @@ export function ContextMenu({
               <button className="context-menu-item" onClick={() => handleClick(onMatchHeight)}>
                 <span className="context-menu-icon">↕</span>
                 Match Height to Others
+              </button>
+            )}
+            {onSetSize && (
+              <button className="context-menu-item" onClick={() => handleClick(onSetSize)}>
+                <span className="context-menu-icon">⬒</span>
+                Set Size...
               </button>
             )}
             <div className="context-menu-divider" />

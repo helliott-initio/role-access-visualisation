@@ -11,6 +11,7 @@ interface EditModalProps {
   onDelete: (groupId: string) => void;
   onClose: () => void;
   isNew?: boolean;
+  defaultSectionId?: string;
 }
 
 export function EditModal({
@@ -22,6 +23,7 @@ export function EditModal({
   onDelete,
   onClose,
   isNew = false,
+  defaultSectionId,
 }: EditModalProps) {
   const [formData, setFormData] = useState<RoleGroup>({
     id: '',
@@ -42,7 +44,7 @@ export function EditModal({
         email: '',
         label: '',
         parentId: null,
-        sectionId: sections[0]?.id || '',
+        sectionId: defaultSectionId || sections[0]?.id || '',
         isSecondary: false,
         supplementsRoles: [],
       });
@@ -86,6 +88,7 @@ export function EditModal({
             <input
               id="label"
               type="text"
+              autoComplete="off"
               value={formData.label}
               onChange={(e) => setFormData((prev) => ({ ...prev, label: e.target.value }))}
               placeholder="e.g., Senior Leadership Team"
@@ -99,6 +102,7 @@ export function EditModal({
               <input
                 id="email"
                 type="text"
+                autoComplete="off"
                 value={formData.email.split('@')[0]}
                 onChange={(e) => handleEmailChange(e.target.value)}
                 placeholder="e.g., slt"
@@ -156,6 +160,7 @@ export function EditModal({
                   <input
                     id="edgeLabel"
                     type="text"
+                    autoComplete="off"
                     value={formData.edgeLabel || ''}
                     onChange={(e) =>
                       setFormData((prev) => ({ ...prev, edgeLabel: e.target.value }))

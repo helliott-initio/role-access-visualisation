@@ -6,12 +6,12 @@ import {
   MiniMap,
   useNodesState,
   useEdgesState,
-  useReactFlow,
   MarkerType,
   Panel,
   reconnectEdge,
   addEdge,
   ConnectionMode,
+  useStore,
 } from '@xyflow/react';
 import type { Node, Edge, NodeChange, Connection, OnReconnect } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
@@ -37,40 +37,44 @@ const edgeTypes = {
   custom: CustomEdge,
 };
 
-// Renders alignment guide lines in the React Flow viewport
+// Renders alignment guide lines over the canvas
 function AlignmentGuides({ guideLines }: { guideLines: GuideLine[] }) {
-  const { getViewport } = useReactFlow();
-  const viewport = getViewport();
+  // Reactive viewport from the store — re-renders when zoom/pan changes
+  const transform = useStore((s) => s.transform);
+  const [vx, vy, zoom] = transform;
 
-  // Convert flow coordinates to screen coordinates
-  const toScreen = (val: number, axis: 'x' | 'y') => {
-    if (axis === 'x') return val * viewport.zoom + viewport.x;
-    return val * viewport.zoom + viewport.y;
-  };
+  // Convert flow coordinate to screen pixel relative to the container
+  const flowToScreenX = (x: number) => x * zoom + vx;
+  const flowToScreenY = (y: number) => y * zoom + vy;
 
   return (
-    <svg className="alignment-guides" style={{ position: 'absolute', inset: 0, pointerEvents: 'none', zIndex: 1001 }}>
-      {guideLines.map((line, i) => (
+    <svg
+      className="alignment-guides"
+      width="100%"
+      height="100%"
+      style={{ position: 'absolute', top: 0, left: 0, pointerEvents: 'none', zIndex: 1001 }}
+    >
+      {guideLines.map((line, i) =>
         line.orientation === 'vertical' ? (
           <line
             key={`v-${i}`}
-            x1={toScreen(line.position, 'x')}
+            x1={flowToScreenX(line.position)}
             y1={0}
-            x2={toScreen(line.position, 'x')}
-            y2="100%"
+            x2={flowToScreenX(line.position)}
+            y2={9999}
             className="alignment-guide-line"
           />
         ) : (
           <line
             key={`h-${i}`}
             x1={0}
-            y1={toScreen(line.position, 'y')}
-            x2="100%"
-            y2={toScreen(line.position, 'y')}
+            y1={flowToScreenY(line.position)}
+            x2={9999}
+            y2={flowToScreenY(line.position)}
             className="alignment-guide-line"
           />
         )
-      ))}
+      )}
     </svg>
   );
 }
@@ -103,6 +107,7 @@ interface RoleMapCanvasProps {
   onAddSection: () => void;
   onEditSection: (sectionId: string) => void;
   onDeleteSection: (sectionId: string) => void;
+  onAddDepartment: (parentSectionId: string) => void;
 }
 
 export function RoleMapCanvas({
@@ -124,6 +129,7 @@ export function RoleMapCanvas({
   onAddSection,
   onEditSection,
   onDeleteSection,
+  onAddDepartment,
 }: RoleMapCanvasProps) {
   const flowRef = useRef<HTMLDivElement>(null);
   const edgeReconnectSuccessful = useRef(true);
@@ -144,8 +150,16 @@ export function RoleMapCanvas({
   // Track when a connection is being dragged for visual feedback
   const [isConnecting, setIsConnecting] = useState(false);
 
-  // Alignment guide lines shown during node drag
+  // Alignment guide lines shown during node drag and section resize
   const [guideLines, setGuideLines] = useState<GuideLine[]>([]);
+  // Stable refs for passing to SectionContainer without causing re-renders
+  const setGuideLinesRef = useRef(setGuideLines);
+  setGuideLinesRef.current = setGuideLines;
+  // setNodes ref is populated after useNodesState (below), assigned in an effect-free pattern
+  const setNodesRef = useRef<typeof setNodes>(null as unknown as typeof setNodes);
+
+  // Track the last snapped position so we persist it (not the raw mouse position) on drag end
+  const snappedPositionRef = useRef<Map<string, { x: number; y: number }>>(new Map());
 
   const getSectionForGroup = useCallback(
     (sectionId: string): Section | undefined => {
@@ -162,9 +176,21 @@ export function RoleMapCanvas({
     // Create section container nodes
     map.sections.forEach((section, index) => {
       if (section.id !== 'secondary-roles' || showSecondaryRoles) {
-        const defaultPosition = { x: index * 280, y: 120 };
-        const defaultSize = { width: 250, height: 400 };
-        nodes.push({
+        // If parent section is collapsed, hide this department
+        if (section.parentSectionId) {
+          const parentSection = map.sections.find(s => s.id === section.parentSectionId);
+          if (parentSection?.collapsed) return;
+        }
+
+        const isDepartment = !!section.parentSectionId;
+        const defaultPosition = isDepartment
+          ? { x: 20, y: 50 }
+          : { x: index * 280, y: 120 };
+        const defaultSize = isDepartment
+          ? { width: 200, height: 300 }
+          : { width: 250, height: 400 };
+
+        const nodeConfig: Node = {
           id: `section-${section.id}`,
           type: 'sectionContainer',
           position: section.position || defaultPosition,
@@ -172,17 +198,39 @@ export function RoleMapCanvas({
             label: section.name,
             color: section.color,
             bgColor: section.bgColor,
+            email: section.email,
             collapsed: section.collapsed,
             type: section.type || 'primary',
+            onResizeGuideLines: (lines: GuideLine[]) => setGuideLinesRef.current(lines),
+            onResizeSnap: (snap: { nodeId: string; position: { x: number; y: number }; width: number; height: number }) => {
+              setNodesRef.current(nds =>
+                nds.map(n =>
+                  n.id === snap.nodeId
+                    ? { ...n, position: snap.position, style: { ...n.style, width: snap.width, height: snap.height } }
+                    : n
+                )
+              );
+              // Persist snapped size to data model
+              const sectionId = snap.nodeId.replace('section-', '');
+              onSectionPositionChange(sectionId, snap.position, { width: snap.width, height: snap.height });
+            },
           },
           style: {
             width: section.size?.width || defaultSize.width,
             height: section.size?.height || defaultSize.height,
-            zIndex: -1,
           },
+          zIndex: isDepartment ? 0 : -1,
           selectable: true,
           draggable: true,
-        });
+        };
+
+        // Nest department inside parent section
+        if (isDepartment) {
+          nodeConfig.parentId = `section-${section.parentSectionId}`;
+          nodeConfig.extent = 'parent';
+        }
+
+        nodes.push(nodeConfig);
       }
     });
 
@@ -267,13 +315,24 @@ export function RoleMapCanvas({
     });
 
     // Create edges from standalone connections
+    // Build a set of all visible node IDs (groups + sections)
+    const visibleNodeIds = new Set([
+      ...visibleGroups.map(g => g.id),
+      ...nodes.map(n => n.id), // section nodes are already in the nodes array
+    ]);
+
     (map.connections || []).forEach((conn) => {
       // Only render if both source and target are visible
-      if (visibleGroups.some(g => g.id === conn.source) && visibleGroups.some(g => g.id === conn.target)) {
+      if (visibleNodeIds.has(conn.source) && visibleNodeIds.has(conn.target)) {
         const sourceGroup = map.groups.find(g => g.id === conn.source);
         const targetGroup = map.groups.find(g => g.id === conn.target);
         const sectionId = targetGroup?.sectionId || sourceGroup?.sectionId;
-        const section = sectionId ? map.sections.find(s => s.id === sectionId) : null;
+        // For section-to-section connections, get color from the source section
+        const sourceSectionId = conn.source.startsWith('section-') ? conn.source.replace('section-', '') : null;
+        const targetSectionId = conn.target.startsWith('section-') ? conn.target.replace('section-', '') : null;
+        const section = sectionId
+          ? map.sections.find(s => s.id === sectionId)
+          : map.sections.find(s => s.id === sourceSectionId || s.id === targetSectionId);
         const color = section?.color || '#666';
         const connStyle = conn.style || {};
 
@@ -320,15 +379,18 @@ export function RoleMapCanvas({
   }, [builtNodes, builtEdges]);
 
   const [nodes, setNodes, onNodesChange] = useNodesState(getInitialNodes());
+  setNodesRef.current = setNodes;
   const [edges, setEdges, onEdgesChange] = useEdgesState(builtEdges);
 
-  // Only sync when map structure changes (add/remove nodes), not positions
+  // Sync when map structure OR visual data changes (not positions)
   const prevMapRef = useRef<string>('');
   useEffect(() => {
-    // Create a key based on node IDs and edge IDs only
     const mapKey = JSON.stringify({
       nodeIds: builtNodes.map(n => n.id).sort(),
       edgeIds: builtEdges.map(e => e.id).sort(),
+      // Detect data changes that affect node rendering (section reassignment, label, color)
+      groupMeta: map.groups.map(g => `${g.id}:${g.sectionId}:${g.label}:${g.email || ''}`).sort(),
+      sectionMeta: map.sections.map(s => `${s.id}:${s.color}:${s.bgColor}:${s.name}:${s.email || ''}:${s.parentSectionId || ''}:${s.collapsed}`).sort(),
     });
 
     if (mapKey !== prevMapRef.current) {
@@ -366,8 +428,21 @@ export function RoleMapCanvas({
 
   const handleNodesChange = useCallback(
     (changes: NodeChange[]) => {
+      // On drag-end, replace the raw mouse position with the alignment-snapped
+      // position BEFORE React Flow applies it. This prevents the "jog on release"
+      // where onNodesChange would apply the raw position, undoing the snap.
+      const adjusted = changes.map(change => {
+        if (change.type === 'position' && change.dragging === false && change.position) {
+          const snapped = snappedPositionRef.current.get(change.id);
+          if (snapped) {
+            return { ...change, position: snapped };
+          }
+        }
+        return change;
+      });
+
       // Check for section drag to move children
-      changes.forEach((change) => {
+      adjusted.forEach((change) => {
         if (change.type === 'position' && change.position && change.id.startsWith('section-')) {
           const sectionId = change.id.replace('section-', '');
           const prevPos = sectionPositionsRef.current.get(sectionId);
@@ -378,12 +453,20 @@ export function RoleMapCanvas({
             const deltaY = change.position.y - prevPos.y;
 
             if (deltaX !== 0 || deltaY !== 0) {
-              // Move all groups in this section
+              // Collect this section + all child department sections
+              const sectionIds = new Set([sectionId]);
+              map.sections.forEach(s => {
+                if (s.parentSectionId === sectionId) {
+                  sectionIds.add(s.id);
+                }
+              });
+
+              // Move all groups in this section and its child departments
               setNodes(currentNodes =>
                 currentNodes.map(node => {
                   if (node.id.startsWith('section-')) return node;
                   const nodeData = node.data as { sectionId?: string };
-                  if (nodeData.sectionId === sectionId) {
+                  if (nodeData.sectionId && sectionIds.has(nodeData.sectionId)) {
                     const newPos = {
                       x: node.position.x + deltaX,
                       y: node.position.y + deltaY,
@@ -420,47 +503,23 @@ export function RoleMapCanvas({
         }
       });
 
-      onNodesChange(changes);
+      // Apply adjusted changes to React Flow state (snapped positions, not raw)
+      onNodesChange(adjusted);
 
-      // Save position changes for role nodes (not section containers)
-      changes.forEach((change) => {
+      // Save position changes for role nodes
+      adjusted.forEach((change) => {
         if (change.type === 'position' && change.position && change.dragging === false) {
           if (!change.id.startsWith('section-')) {
-            let finalPosition = change.position;
-
-            // Snap to section center if close
-            const group = map.groups.find(g => g.id === change.id);
-            if (group && group.sectionId && group.sectionId !== 'root') {
-              const section = map.sections.find(s => s.id === group.sectionId);
-              if (section) {
-                const sectionPos = section.position || { x: 0, y: 0 };
-                const sectionWidth = section.size?.width || 250;
-                const pos = change.position;
-
-                // Get actual measured node width from current nodes
-                setNodes(currentNodes => {
-                  const currentNode = currentNodes.find(n => n.id === change.id);
-                  const nodeWidth = currentNode?.measured?.width || 200;
-
-                  // Calculate center X position for the node within the section
-                  const centerX = sectionPos.x + (sectionWidth - nodeWidth) / 2;
-
-                  // Snap to center if within 30px (must be larger than grid size of 15px)
-                  if (pos && Math.abs(pos.x - centerX) < 30) {
-                    finalPosition = { x: centerX, y: pos.y };
-                    return currentNodes.map(n =>
-                      n.id === change.id ? { ...n, position: finalPosition } : n
-                    );
-                  }
-                  return currentNodes;
-                });
-              }
-            }
-
-            // Update cache and persist to data model
-            positionCacheRef.current.set(change.id, finalPosition);
-            onNodePositionChange(change.id, finalPosition);
+            positionCacheRef.current.set(change.id, change.position);
+            onNodePositionChange(change.id, change.position);
           }
+        }
+      });
+
+      // Clean up snapped refs after persisting
+      adjusted.forEach((change) => {
+        if (change.type === 'position' && change.dragging === false) {
+          snappedPositionRef.current.delete(change.id);
         }
       });
     },
@@ -469,6 +528,7 @@ export function RoleMapCanvas({
 
   const handleNodeClick = useCallback(
     (_: React.MouseEvent, node: Node) => {
+      setGuideLines([]);
       if (!node.id.startsWith('section-')) {
         onNodeSelect(node.id);
       }
@@ -489,6 +549,7 @@ export function RoleMapCanvas({
   );
 
   const handlePaneClick = useCallback(() => {
+    setGuideLines([]);
     onNodeSelect(null);
     setContextMenu(prev => ({ ...prev, show: false }));
   }, [onNodeSelect]);
@@ -805,6 +866,34 @@ export function RoleMapCanvas({
     }
   }, [nodes, map.sections, onSectionPositionChange, setNodes]);
 
+  // Set exact section dimensions via prompt
+  const handleSetSize = useCallback((sectionId: string) => {
+    const currentSection = map.sections.find(s => s.id === sectionId);
+    if (!currentSection) return;
+
+    const currentW = currentSection.size?.width || 250;
+    const currentH = currentSection.size?.height || 400;
+    const input = prompt(`Enter size as width x height:`, `${currentW} x ${currentH}`);
+    if (!input) return;
+
+    const match = input.match(/(\d+)\s*[x×,]\s*(\d+)/);
+    if (!match) return;
+
+    const newW = Math.max(150, parseInt(match[1], 10));
+    const newH = Math.max(100, parseInt(match[2], 10));
+
+    onSectionPositionChange(
+      sectionId,
+      currentSection.position || { x: 0, y: 0 },
+      { width: newW, height: newH }
+    );
+    setNodes(nds => nds.map(n =>
+      n.id === `section-${sectionId}`
+        ? { ...n, style: { ...n.style, width: newW, height: newH } }
+        : n
+    ));
+  }, [map.sections, onSectionPositionChange, setNodes]);
+
   // Handle edge reconnection (drag to reparent)
   const onReconnectStart = useCallback(() => {
     edgeReconnectSuccessful.current = false;
@@ -874,21 +963,26 @@ export function RoleMapCanvas({
   // Smart alignment snapping during node drag
   const handleNodeDrag = useCallback(
     (_: React.MouseEvent, dragNode: Node) => {
-      if (dragNode.id.startsWith('section-')) {
-        setGuideLines([]);
-        return;
-      }
+      const isSection = dragNode.id.startsWith('section-');
+      // Sections snap only to other sections; role nodes snap to everything
+      const candidates = isSection
+        ? nodes.filter(n => n.id.startsWith('section-'))
+        : nodes;
 
-      const result = findAlignments(dragNode, nodes);
+      const result = findAlignments(dragNode, candidates);
 
       if (result.snapX !== null || result.snapY !== null) {
         const snappedPos = {
           x: result.snapX ?? dragNode.position.x,
           y: result.snapY ?? dragNode.position.y,
         };
+        snappedPositionRef.current.set(dragNode.id, snappedPos);
         setNodes(nds =>
           nds.map(n => n.id === dragNode.id ? { ...n, position: snappedPos } : n)
         );
+      } else {
+        // No snap — clear so drag-end uses raw position
+        snappedPositionRef.current.delete(dragNode.id);
       }
 
       setGuideLines(result.guideLines);
@@ -914,11 +1008,17 @@ export function RoleMapCanvas({
         const section = sectionId ? map.sections.find(s => s.id === sectionId) : null;
         const edgeColor = section?.color || '#666';
 
+        // Determine if this involves section nodes (not group nodes)
+        const involvesSection =
+          connection.source.startsWith('section-') || connection.target.startsWith('section-');
+
         // Check if target already has a parent - if so, add as standalone connection
         const targetHasParent = targetGroup?.parentId != null;
 
-        if (targetHasParent) {
-          // Add as standalone connection (allows multiple edges to same node)
+        // Use standalone connection if:
+        // - Target already has a parent (multiple edges to same node)
+        // - Either end is a section node (can't be a parent-child relationship)
+        if (targetHasParent || involvesSection) {
           const connId = crypto.randomUUID().slice(0, 12);
           onAddConnection({
             id: connId,
@@ -1104,6 +1204,11 @@ export function RoleMapCanvas({
             }
           }}
           onAddSection={onAddSection}
+          onAddDepartment={
+            contextMenu.nodeType === 'section' && contextMenu.nodeId
+              ? () => onAddDepartment(contextMenu.nodeId!)
+              : undefined
+          }
           hasLabel={!!contextMenu.edgeData?.label}
           isDashed={contextMenu.edgeData?.dashed}
           isAnimated={contextMenu.edgeData?.animated}
@@ -1149,6 +1254,11 @@ export function RoleMapCanvas({
           onMatchHeight={() => {
             if (contextMenu.nodeId && contextMenu.nodeType === 'section') {
               handleMatchHeight(contextMenu.nodeId);
+            }
+          }}
+          onSetSize={() => {
+            if (contextMenu.nodeId && contextMenu.nodeType === 'section') {
+              handleSetSize(contextMenu.nodeId);
             }
           }}
         />

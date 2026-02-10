@@ -80,6 +80,7 @@ export function Combobox({
           ref={inputRef}
           type="text"
           className="combobox-input"
+          autoComplete="off"
           value={inputValue}
           onChange={handleInputChange}
           onFocus={() => setIsOpen(true)}
@@ -185,6 +186,7 @@ export function MultiCombobox({
           ref={inputRef}
           type="text"
           className="combobox-input-inline"
+          autoComplete="off"
           value={inputValue}
           onChange={(e) => {
             setInputValue(e.target.value);

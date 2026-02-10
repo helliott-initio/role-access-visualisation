@@ -63,6 +63,7 @@ export function NewMapModal({ onSave, onClose }: NewMapModalProps) {
             <input
               id="map-name"
               type="text"
+              autoComplete="off"
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder="e.g., Secondary School"
@@ -76,6 +77,7 @@ export function NewMapModal({ onSave, onClose }: NewMapModalProps) {
             <input
               id="map-domain"
               type="text"
+              autoComplete="off"
               value={domain}
               onChange={(e) => setDomain(e.target.value)}
               placeholder="e.g., school.org"

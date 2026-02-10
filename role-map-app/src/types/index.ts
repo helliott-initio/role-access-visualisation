@@ -25,7 +25,9 @@ export interface Section {
   color: string;
   bgColor: string;
   collapsed: boolean;
-  type?: 'primary' | 'secondary' | 'support'; // Section category
+  type?: 'primary' | 'secondary' | 'support' | 'department'; // Section category
+  parentSectionId?: string | null; // If set, this section is a department inside another section
+  email?: string; // Email address for the section (mainly for departments)
   position?: { x: number; y: number }; // Section container position
   size?: { width: number; height: number }; // Section container size
 }

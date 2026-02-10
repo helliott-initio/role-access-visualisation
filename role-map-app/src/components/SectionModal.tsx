@@ -3,10 +3,13 @@ import type { Section } from '../types';
 
 interface SectionModalProps {
   section: Section | null;
+  sections: Section[];
+  domain: string;
   onSave: (section: Section) => void;
   onDelete: (sectionId: string) => void;
   onClose: () => void;
   isNew?: boolean;
+  defaultParentSectionId?: string;
 }
 
 // Initio Learning Trust brand-inspired colors
@@ -24,10 +27,13 @@ const PRESET_COLORS = [
 
 export function SectionModal({
   section,
+  sections,
+  domain,
   onSave,
   onDelete,
   onClose,
   isNew = false,
+  defaultParentSectionId,
 }: SectionModalProps) {
   const [formData, setFormData] = useState<Section>({
     id: '',
@@ -48,15 +54,21 @@ export function SectionModal({
         color: PRESET_COLORS[0].color,
         bgColor: PRESET_COLORS[0].bgColor,
         collapsed: false,
-        type: 'primary',
+        type: defaultParentSectionId ? 'department' : 'primary',
+        parentSectionId: defaultParentSectionId || null,
       });
     }
-  }, [section]);
+  }, [section, defaultParentSectionId]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    const emailWithDomain =
+      formData.email && !formData.email.includes('@')
+        ? `${formData.email}@${domain}`
+        : formData.email;
     onSave({
       ...formData,
+      email: emailWithDomain || undefined,
       id: isNew ? `${formData.name.toLowerCase().replace(/[^a-z0-9]/g, '-')}-${formData.id.split('-').pop()}` : formData.id,
     });
   };
@@ -67,6 +79,27 @@ export function SectionModal({
       color: preset.color,
       bgColor: preset.bgColor,
     }));
+  };
+
+  // Only top-level sections (no parent themselves) can be parents — prevents deep nesting
+  const availableParentSections = sections.filter(
+    (s) => !s.parentSectionId && s.id !== section?.id && s.id !== 'secondary-roles'
+  );
+
+  const handleParentChange = (parentId: string) => {
+    if (parentId) {
+      setFormData((prev) => ({
+        ...prev,
+        parentSectionId: parentId,
+        type: 'department',
+      }));
+    } else {
+      setFormData((prev) => ({
+        ...prev,
+        parentSectionId: null,
+        type: prev.type === 'department' ? 'primary' : prev.type,
+      }));
+    }
   };
 
   return (
@@ -85,6 +118,7 @@ export function SectionModal({
             <input
               id="name"
               type="text"
+              autoComplete="off"
               value={formData.name}
               onChange={(e) => setFormData((prev) => ({ ...prev, name: e.target.value }))}
               placeholder="e.g., Teaching Staff"
@@ -93,21 +127,56 @@ export function SectionModal({
           </div>
 
           <div className="form-group">
-            <label htmlFor="type">Section Type</label>
+            <label htmlFor="parent-section">Parent Section</label>
             <select
-              id="type"
-              value={formData.type || 'primary'}
-              onChange={(e) =>
-                setFormData((prev) => ({
-                  ...prev,
-                  type: e.target.value as 'primary' | 'secondary' | 'support',
-                }))
-              }
+              id="parent-section"
+              value={formData.parentSectionId || ''}
+              onChange={(e) => handleParentChange(e.target.value)}
             >
-              <option value="primary">Primary</option>
-              <option value="secondary">Secondary</option>
-              <option value="support">Support</option>
+              <option value="">None (top-level section)</option>
+              {availableParentSections.map((s) => (
+                <option key={s.id} value={s.id}>
+                  {s.name}
+                </option>
+              ))}
             </select>
+          </div>
+
+          {!formData.parentSectionId && (
+            <div className="form-group">
+              <label htmlFor="type">Section Type</label>
+              <select
+                id="type"
+                value={formData.type || 'primary'}
+                onChange={(e) =>
+                  setFormData((prev) => ({
+                    ...prev,
+                    type: e.target.value as 'primary' | 'secondary' | 'support',
+                  }))
+                }
+              >
+                <option value="primary">Primary</option>
+                <option value="secondary">Secondary</option>
+                <option value="support">Support</option>
+              </select>
+            </div>
+          )}
+
+          <div className="form-group">
+            <label htmlFor="section-email">Section Email (optional)</label>
+            <div className="email-input-wrapper">
+              <input
+                id="section-email"
+                type="text"
+                autoComplete="off"
+                value={(formData.email || '').split('@')[0]}
+                onChange={(e) =>
+                  setFormData((prev) => ({ ...prev, email: e.target.value }))
+                }
+                placeholder="e.g., maths"
+              />
+              <span className="domain-suffix">@{domain}</span>
+            </div>
           </div>
 
           <div className="form-group">

@@ -123,13 +123,20 @@ export function useRoleMap() {
       ...prev,
       maps: prev.maps.map((map) => {
         if (map.id !== prev.activeMapId) return map;
-        // Get IDs of groups being deleted with the section
+        // Collect this section + all child sections (departments)
+        const deletedSectionIds = new Set<string>([sectionId]);
+        map.sections.forEach((s) => {
+          if (s.parentSectionId === sectionId) {
+            deletedSectionIds.add(s.id);
+          }
+        });
+        // Get IDs of groups being deleted with these sections
         const deletedGroupIds = new Set(
-          map.groups.filter(g => g.sectionId === sectionId).map(g => g.id)
+          map.groups.filter(g => deletedSectionIds.has(g.sectionId)).map(g => g.id)
         );
-        // Remove groups in section and clean up references from surviving groups
+        // Remove groups in deleted sections and clean up references from surviving groups
         const survivingGroups = map.groups
-          .filter((g) => g.sectionId !== sectionId)
+          .filter((g) => !deletedSectionIds.has(g.sectionId))
           .map((g) => {
             let updated = g;
             // Clear parent reference if parent was in deleted section
@@ -145,13 +152,15 @@ export function useRoleMap() {
             }
             return updated;
           });
-        // Remove standalone connections referencing deleted groups
+        // Remove standalone connections referencing deleted groups or sections
+        const deletedSectionNodeIds = new Set([...deletedSectionIds].map(id => `section-${id}`));
         const newConnections = (map.connections || []).filter(
           (c) => !deletedGroupIds.has(c.source) && !deletedGroupIds.has(c.target)
+            && !deletedSectionNodeIds.has(c.source) && !deletedSectionNodeIds.has(c.target)
         );
         return {
           ...map,
-          sections: map.sections.filter((s) => s.id !== sectionId),
+          sections: map.sections.filter((s) => !deletedSectionIds.has(s.id)),
           groups: survivingGroups,
           connections: newConnections,
         };
@@ -164,11 +173,19 @@ export function useRoleMap() {
       ...prev,
       maps: prev.maps.map((map) => {
         if (map.id !== prev.activeMapId) return map;
+        const target = map.sections.find((s) => s.id === sectionId);
+        if (!target) return map;
+        const willCollapse = !target.collapsed;
         return {
           ...map,
-          sections: map.sections.map((s) =>
-            s.id === sectionId ? { ...s, collapsed: !s.collapsed } : s
-          ),
+          sections: map.sections.map((s) => {
+            if (s.id === sectionId) return { ...s, collapsed: willCollapse };
+            // When collapsing a parent, also collapse all child sections
+            if (willCollapse && s.parentSectionId === sectionId) {
+              return { ...s, collapsed: true };
+            }
+            return s;
+          }),
         };
       }),
     }));
