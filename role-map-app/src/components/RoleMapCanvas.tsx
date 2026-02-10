@@ -23,7 +23,7 @@ import SectionContainer from './SectionContainer';
 import CustomEdge from './CustomEdge';
 import { ContextMenu } from './ContextMenu';
 import { getLayoutedElements } from '../utils/layout';
-import type { RoleMap, Section, MapConnection } from '../types';
+import type { RoleMap, RoleGroup, Section, MapConnection } from '../types';
 
 const nodeTypes = {
   roleNode: RoleNode,
@@ -56,6 +56,7 @@ interface RoleMapCanvasProps {
   onAddConnection: (connection: MapConnection) => void;
   onRemoveConnection: (connectionId: string) => void;
   onUpdateConnectionStyle: (connectionId: string, label?: string, style?: MapConnection['style']) => void;
+  onUpdateGroup: (group: RoleGroup) => void;
   onEditNode: (nodeId: string) => void;
   onDeleteNode: (nodeId: string) => void;
   onAddGroup: (parentId?: string, sectionId?: string) => void;
@@ -76,6 +77,7 @@ export function RoleMapCanvas({
   onAddConnection,
   onRemoveConnection,
   onUpdateConnectionStyle,
+  onUpdateGroup,
   onEditNode,
   onDeleteNode,
   onAddGroup,
@@ -511,13 +513,15 @@ export function RoleMapCanvas({
           const connId = edge.id.replace('conn-', '');
           onRemoveConnection(connId);
         } else if (edge.id.startsWith('secondary-')) {
-          // Secondary role supplement edge - update the group's supplementsRoles
+          // Secondary role supplement edge - remove target from supplementsRoles
           const secondaryGroup = map.groups.find(g =>
             g.isSecondary && edge.id === `secondary-${g.id}-${edge.target}`
           );
           if (secondaryGroup && secondaryGroup.supplementsRoles) {
-            // TODO: This needs a proper updateGroup call to remove from supplementsRoles - tracked in task #11
-            onEdgeStyleChange(secondaryGroup.id, undefined, undefined);
+            onUpdateGroup({
+              ...secondaryGroup,
+              supplementsRoles: secondaryGroup.supplementsRoles.filter(r => r !== edge.target),
+            });
           }
         } else {
           // Remove parent relationship for regular edges
@@ -526,7 +530,7 @@ export function RoleMapCanvas({
         setEdges(eds => eds.filter(e => e.id !== edgeId));
       }
     },
-    [edges, setEdges, onReparent, onRemoveConnection, map.groups, onEdgeStyleChange]
+    [edges, setEdges, onReparent, onRemoveConnection, onUpdateGroup, map.groups]
   );
 
   // Handle edge deletion via keyboard (Delete/Backspace key)
@@ -538,14 +542,23 @@ export function RoleMapCanvas({
           const connId = edge.id.replace('conn-', '');
           onRemoveConnection(connId);
         } else if (edge.id.startsWith('secondary-')) {
-          // Secondary edge - handled by data model
+          // Secondary edge - remove from supplementsRoles
+          const secondaryGroup = map.groups.find(g =>
+            g.isSecondary && edge.id === `secondary-${g.id}-${edge.target}`
+          );
+          if (secondaryGroup && secondaryGroup.supplementsRoles) {
+            onUpdateGroup({
+              ...secondaryGroup,
+              supplementsRoles: secondaryGroup.supplementsRoles.filter(r => r !== edge.target),
+            });
+          }
         } else {
           // Regular edge - clear parent relationship in data model
           onReparent(edge.target, null);
         }
       });
     },
-    [onReparent, onRemoveConnection]
+    [onReparent, onRemoveConnection, onUpdateGroup, map.groups]
   );
 
   // Get group ID from edge ID (edge format: parentId-groupId or conn-connId)

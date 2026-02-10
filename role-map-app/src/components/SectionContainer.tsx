@@ -40,6 +40,7 @@ function SectionContainer({ id, data, selected }: NodeProps) {
     border: `2px solid ${color}`,
     opacity: selected ? 1 : 0,
     transition: 'opacity 0.2s',
+    zIndex: 10,
   };
 
   return (
@@ -60,48 +61,6 @@ function SectionContainer({ id, data, selected }: NodeProps) {
         </div>
       )}
 
-      {/* Section handles - all positioned relative to the header bar */}
-      {/* Top center of header - default Position.Top works */}
-      <Handle
-        type="source"
-        position={Position.Top}
-        id="top"
-        style={baseHandleStyle}
-        isConnectableStart={true}
-        isConnectableEnd={true}
-      />
-      {/* Bottom of header - use Position.Top with manual offset to avoid Position.Bottom going to section bottom */}
-      <Handle
-        type="source"
-        position={Position.Top}
-        id="header-bottom"
-        style={{
-          ...baseHandleStyle,
-          top: headerHeight,
-          transform: 'translate(-50%, -50%)',
-        }}
-        isConnectableStart={true}
-        isConnectableEnd={true}
-      />
-      {/* Left side of header */}
-      <Handle
-        type="source"
-        position={Position.Left}
-        id="left"
-        style={{ ...baseHandleStyle, top: headerCenter }}
-        isConnectableStart={true}
-        isConnectableEnd={true}
-      />
-      {/* Right side of header */}
-      <Handle
-        type="source"
-        position={Position.Right}
-        id="right"
-        style={{ ...baseHandleStyle, top: headerCenter }}
-        isConnectableStart={true}
-        isConnectableEnd={true}
-      />
-
       <div
         className="section-container"
         style={{
@@ -116,6 +75,44 @@ function SectionContainer({ id, data, selected }: NodeProps) {
           <span className="section-container-badge">{typeLabel}</span>
         </div>
       </div>
+
+      {/* Section handles - rendered after container so they paint above the header */}
+      <Handle
+        type="source"
+        position={Position.Top}
+        id="top"
+        style={baseHandleStyle}
+        isConnectableStart={true}
+        isConnectableEnd={true}
+      />
+      <Handle
+        type="source"
+        position={Position.Top}
+        id="header-bottom"
+        style={{
+          ...baseHandleStyle,
+          top: headerHeight,
+          transform: 'translate(-50%, -50%)',
+        }}
+        isConnectableStart={true}
+        isConnectableEnd={true}
+      />
+      <Handle
+        type="source"
+        position={Position.Left}
+        id="left"
+        style={{ ...baseHandleStyle, top: headerCenter }}
+        isConnectableStart={true}
+        isConnectableEnd={true}
+      />
+      <Handle
+        type="source"
+        position={Position.Right}
+        id="right"
+        style={{ ...baseHandleStyle, top: headerCenter }}
+        isConnectableStart={true}
+        isConnectableEnd={true}
+      />
     </>
   );
 }

@@ -217,6 +217,7 @@ function App() {
             onAddConnection={addConnection}
             onRemoveConnection={removeConnection}
             onUpdateConnectionStyle={updateConnectionStyle}
+            onUpdateGroup={updateGroup}
             onEditNode={handleEditNode}
             onDeleteNode={handleDeleteNode}
             onAddGroup={handleAddGroup}
