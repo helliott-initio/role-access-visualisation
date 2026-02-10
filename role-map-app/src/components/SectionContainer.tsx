@@ -85,14 +85,14 @@ function SectionContainer({ id, data, selected }: NodeProps) {
         isConnectableStart={true}
         isConnectableEnd={true}
       />
-      {/* Bottom of header - positioned within the visible header area */}
+      {/* Bottom edge of header */}
       <Handle
         type="source"
         position={Position.Top}
         id="header-bottom"
         style={{
           ...baseHandleStyle,
-          top: headerHeight - 6,
+          top: headerHeight,
           transform: 'translate(-50%, -50%)',
         }}
         isConnectableStart={true}
