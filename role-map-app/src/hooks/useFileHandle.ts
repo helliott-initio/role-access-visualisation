@@ -153,26 +153,32 @@ export function useFileHandle(maps: RoleMap[]) {
     }
   }, []);
 
+  // Guard: true while an async write is in flight
+  const savePendingRef = useRef(false);
+
+  // Clean up timer on unmount only
+  useEffect(() => {
+    return () => { if (saveTimerRef.current) clearTimeout(saveTimerRef.current); };
+  }, []);
+
   // Debounced auto-save: compare JSON content on every render to detect real changes.
+  // No cleanup function — the timer is managed via refs so that re-renders
+  // (e.g. from setSaveStatus) don't cancel the pending write.
   useEffect(() => {
     if (!fileHandleRef.current) return;
+    if (savePendingRef.current) return;   // write in flight
+    if (saveTimerRef.current) return;     // timer already scheduled
 
     const currentJson = JSON.stringify(maps);
     if (currentJson === lastSavedJsonRef.current) return;
 
-    // Data actually changed — update lastSavedJsonRef immediately so that
-    // re-renders caused by setSaveStatus don't re-trigger this branch.
-    lastSavedJsonRef.current = currentJson;
     setSaveStatus('unsaved');
-
-    if (saveTimerRef.current) {
-      clearTimeout(saveTimerRef.current);
-    }
 
     saveTimerRef.current = setTimeout(async () => {
       const handle = fileHandleRef.current;
-      if (!handle) return;
+      if (!handle) { saveTimerRef.current = null; return; }
 
+      savePendingRef.current = true;
       setSaveStatus('saving');
       try {
         const latestMaps = mapsRef.current;
@@ -191,14 +197,10 @@ export function useFileHandle(maps: RoleMap[]) {
         fileHandleRef.current = null;
         setFileName(null);
       }
+      savePendingRef.current = false;
+      saveTimerRef.current = null;
     }, 500);
-
-    return () => {
-      if (saveTimerRef.current) {
-        clearTimeout(saveTimerRef.current);
-      }
-    };
-  }); // <-- NO dependency array: runs after every render
+  }); // <-- NO dependency array, NO cleanup (timer managed via refs)
 
   // Whether we need the user to re-open their file (had a file last session but no handle now)
   const needsReopen = isSupported && !fileName && !!lastFileName;
