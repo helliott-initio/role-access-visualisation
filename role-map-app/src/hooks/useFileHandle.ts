@@ -12,6 +12,11 @@ const LAST_FILE_KEY = 'role-map-last-file';
 
 export type SaveStatus = 'idle' | 'unsaved' | 'saving' | 'saved' | 'error';
 
+export interface OpenFileResult {
+  maps: RoleMap[];
+  handle: FileSystemFileHandle;
+}
+
 async function writeToHandle(handle: FileSystemFileHandle, maps: RoleMap[]): Promise<void> {
   const writable = await handle.createWritable();
   try {
@@ -44,7 +49,8 @@ export function useFileHandle(maps: RoleMap[]) {
 
   const isSupported = typeof window !== 'undefined' && 'showOpenFilePicker' in window;
 
-  const openFile = useCallback(async (): Promise<RoleMap[] | null> => {
+  // Phase 1: pick and parse a file. Does NOT activate the handle — returns data only.
+  const openFile = useCallback(async (): Promise<OpenFileResult | null> => {
     try {
       const [handle] = await window.showOpenFilePicker({
         types: FILE_PICKER_TYPES,
@@ -67,15 +73,7 @@ export function useFileHandle(maps: RoleMap[]) {
       });
       if (!isValid || mapsArr.length === 0) return null;
 
-      fileHandleRef.current = handle;
-      // Snapshot what we just loaded so the effect knows it's already saved
-      lastSavedJsonRef.current = JSON.stringify(mapsArr);
-      setFileName(handle.name);
-      setLastFileName(handle.name);
-      localStorage.setItem(LAST_FILE_KEY, handle.name);
-      setSaveStatus('saved');
-      setSaveError(null);
-      return mapsArr as RoleMap[];
+      return { maps: mapsArr as RoleMap[], handle };
     } catch (err: unknown) {
       if (err instanceof DOMException && err.name === 'AbortError') return null;
       console.error('Failed to open file:', err);
@@ -85,21 +83,34 @@ export function useFileHandle(maps: RoleMap[]) {
     }
   }, []);
 
+  // Phase 2: activate the handle AFTER maps have been loaded into state.
+  // Called from App.tsx after loadMaps() so the effect never sees stale data.
+  const activateFile = useCallback((handle: FileSystemFileHandle, loadedMaps: RoleMap[]) => {
+    fileHandleRef.current = handle;
+    lastSavedJsonRef.current = JSON.stringify(loadedMaps);
+    setFileName(handle.name);
+    setLastFileName(handle.name);
+    localStorage.setItem(LAST_FILE_KEY, handle.name);
+    setSaveStatus('saved');
+    setSaveError(null);
+  }, []);
+
   const newFile = useCallback(async (currentMaps: RoleMap[]): Promise<boolean> => {
     try {
       const handle = await window.showSaveFilePicker({
         suggestedName: 'role-maps.json',
         types: FILE_PICKER_TYPES,
       });
-      fileHandleRef.current = handle;
-      setFileName(handle.name);
-      setLastFileName(handle.name);
-      localStorage.setItem(LAST_FILE_KEY, handle.name);
       setSaveStatus('saving');
       setSaveError(null);
 
       await writeToHandle(handle, currentMaps);
+
+      fileHandleRef.current = handle;
       lastSavedJsonRef.current = JSON.stringify(currentMaps);
+      setFileName(handle.name);
+      setLastFileName(handle.name);
+      localStorage.setItem(LAST_FILE_KEY, handle.name);
       setSaveStatus('saved');
       return true;
     } catch (err: unknown) {
@@ -183,6 +194,7 @@ export function useFileHandle(maps: RoleMap[]) {
     saveError,
     isSupported,
     openFile,
+    activateFile,
     newFile,
     closeFile,
   };

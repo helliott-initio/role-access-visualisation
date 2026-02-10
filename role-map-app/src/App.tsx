@@ -46,6 +46,7 @@ function App() {
     saveError,
     isSupported: isFileSystemSupported,
     openFile,
+    activateFile,
     newFile,
     closeFile,
   } = useFileHandle(state.maps);
@@ -200,11 +201,14 @@ function App() {
   }, [exportData]);
 
   const handleOpenFile = useCallback(async () => {
-    const maps = await openFile();
-    if (maps) {
-      loadMaps(maps);
+    const result = await openFile();
+    if (result) {
+      // Load maps into state FIRST, then activate the file handle.
+      // This guarantees the auto-save effect never sees stale data.
+      loadMaps(result.maps);
+      activateFile(result.handle, result.maps);
     }
-  }, [openFile, loadMaps]);
+  }, [openFile, loadMaps, activateFile]);
 
   const handleNewFile = useCallback(async () => {
     await newFile(state.maps);
