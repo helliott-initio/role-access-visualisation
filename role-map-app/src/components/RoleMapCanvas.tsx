@@ -1346,21 +1346,25 @@ export async function exportToPDF(elementId: string, filename: string) {
   if (!element) return;
 
   try {
+    const hiResScale = 2;
     const canvas = await html2canvas(element, {
-      scale: 2,
+      scale: hiResScale,
       useCORS: true,
       logging: false,
       backgroundColor: '#ffffff',
     });
 
-    const imgData = canvas.toDataURL('image/png');
+    const imgData = canvas.toDataURL('image/jpeg', 0.92);
+    const pageW = canvas.width / hiResScale;
+    const pageH = canvas.height / hiResScale;
+
     const pdf = new jsPDF({
-      orientation: canvas.width > canvas.height ? 'landscape' : 'portrait',
+      orientation: pageW > pageH ? 'landscape' : 'portrait',
       unit: 'px',
-      format: [canvas.width, canvas.height],
+      format: [pageW, pageH],
     });
 
-    pdf.addImage(imgData, 'PNG', 0, 0, canvas.width, canvas.height);
+    pdf.addImage(imgData, 'JPEG', 0, 0, pageW, pageH);
     pdf.save(`${filename}.pdf`);
   } catch (error) {
     console.error('Error exporting PDF:', error);

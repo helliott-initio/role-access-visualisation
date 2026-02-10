@@ -325,6 +325,13 @@ export function useRoleMap() {
     }));
   }, []);
 
+  const renameMap = useCallback((mapId: string, newName: string) => {
+    setState((prev) => ({
+      ...prev,
+      maps: prev.maps.map((m) => m.id === mapId ? { ...m, name: newName } : m),
+    }));
+  }, []);
+
   const addMap = useCallback((map: RoleMap) => {
     setState((prev) => ({
       ...prev,
@@ -414,6 +421,7 @@ export function useRoleMap() {
     addConnection,
     removeConnection,
     updateConnectionStyle,
+    renameMap,
     addMap,
     deleteMap,
     exportData,

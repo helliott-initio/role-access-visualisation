@@ -470,6 +470,18 @@ html, body, #root {
   color: #e06060;
 }
 
+.hdr-tab-edit {
+  background: rgba(255,255,255,0.1);
+  border: 1px solid #5a9cc4;
+  border-radius: 3px;
+  color: #e8eff4;
+  font-size: 0.75rem;
+  font-weight: 500;
+  padding: 2px 6px;
+  width: 120px;
+  outline: none;
+}
+
 .hdr-tab-add {
   display: flex;
   align-items: center;

@@ -43,6 +43,7 @@ function App() {
     exportData,
     importData,
     loadMaps,
+    renameMap,
     addMap,
     deleteMap,
   } = useRoleMap();
@@ -268,6 +269,7 @@ function App() {
         onExportPDF={handleExportPDF}
         onAddMap={handleAddMap}
         onDeleteMap={deleteMap}
+        onRenameMap={renameMap}
         onSaveData={handleSaveData}
         onLoadData={importData}
         onOpenFile={handleOpenFile}

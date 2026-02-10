@@ -15,6 +15,7 @@ interface ToolbarProps {
   onExportPDF: () => void;
   onAddMap: () => void;
   onDeleteMap: (mapId: string) => void;
+  onRenameMap: (mapId: string, newName: string) => void;
   onSaveData: () => void;
   onLoadData: (json: string) => boolean;
   // File System Access API props
@@ -119,6 +120,7 @@ export function Toolbar({
   onExportPDF,
   onAddMap,
   onDeleteMap,
+  onRenameMap,
   onSaveData,
   onLoadData,
   onOpenFile,
@@ -152,6 +154,8 @@ export function Toolbar({
   };
 
   const [deleteMapConfirm, setDeleteMapConfirm] = useState<{ id: string; name: string } | null>(null);
+  const [editingTabId, setEditingTabId] = useState<string | null>(null);
+  const [editingTabName, setEditingTabName] = useState('');
   const canDelete = maps.length > 1;
 
   return (
@@ -277,13 +281,41 @@ export function Toolbar({
               key={map.id}
               className={`hdr-tab ${activeMapId === map.id ? 'hdr-tab-active' : ''}`}
             >
-              <button
-                className="hdr-tab-btn"
-                onClick={() => onMapChange(map.id)}
-              >
-                {map.name}
-              </button>
-              {canDelete && (
+              {editingTabId === map.id ? (
+                <input
+                  className="hdr-tab-edit"
+                  value={editingTabName}
+                  onChange={(e) => setEditingTabName(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      const trimmed = editingTabName.trim();
+                      if (trimmed) onRenameMap(map.id, trimmed);
+                      setEditingTabId(null);
+                    } else if (e.key === 'Escape') {
+                      setEditingTabId(null);
+                    }
+                  }}
+                  onBlur={() => {
+                    const trimmed = editingTabName.trim();
+                    if (trimmed) onRenameMap(map.id, trimmed);
+                    setEditingTabId(null);
+                  }}
+                  autoFocus
+                  onFocus={(e) => e.target.select()}
+                />
+              ) : (
+                <button
+                  className="hdr-tab-btn"
+                  onClick={() => onMapChange(map.id)}
+                  onDoubleClick={() => {
+                    setEditingTabId(map.id);
+                    setEditingTabName(map.name);
+                  }}
+                >
+                  {map.name}
+                </button>
+              )}
+              {canDelete && editingTabId !== map.id && (
                 <button
                   className="hdr-tab-x"
                   onClick={(e) => {
