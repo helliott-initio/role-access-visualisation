@@ -153,27 +153,19 @@ export function useFileHandle(maps: RoleMap[]) {
     }
   }, []);
 
-  // Debounced auto-save on every render where maps changed
-  // Uses a ref to track the previous maps identity, avoiding dependency-array subtleties.
-  const prevMapsRef = useRef(maps);
-
+  // Debounced auto-save: compare JSON content on every render to detect real changes.
+  // Reference comparison (maps === prev) proved unreliable for structural changes
+  // (deletes/creates), so we compare serialised content against lastSavedJsonRef instead.
   useEffect(() => {
-    // Run after every render — compare maps identity ourselves
-    if (!fileHandleRef.current) {
-      prevMapsRef.current = maps;
-      return;
-    }
+    if (!fileHandleRef.current) return;
 
-    if (maps === prevMapsRef.current) return; // same reference = no change
-    prevMapsRef.current = maps;
-
-    // Compare JSON to skip writing back identical data (e.g. after file open)
     const currentJson = JSON.stringify(maps);
-    if (currentJson === lastSavedJsonRef.current) {
-      return;
-    }
+    if (currentJson === lastSavedJsonRef.current) return;
 
-    // Data actually changed — mark unsaved and schedule write
+    // Data actually changed — update lastSavedJsonRef immediately so that
+    // re-renders caused by setSaveStatus don't re-trigger this branch.
+    lastSavedJsonRef.current = currentJson;
+
     console.log('[auto-save] change detected, scheduling write…',
       { sections: maps[0]?.sections?.length, groups: maps[0]?.groups?.length });
     setSaveStatus('unsaved');
@@ -197,6 +189,8 @@ export function useFileHandle(maps: RoleMap[]) {
         setSaveError(null);
       } catch (err) {
         console.error('[auto-save] write FAILED:', err);
+        // Reset so the next change retries
+        lastSavedJsonRef.current = '';
         const message = err instanceof DOMException && err.name === 'NotAllowedError'
           ? 'Permission denied. Re-open the file to continue saving.'
           : `Save failed: ${String(err)}`;
