@@ -13,7 +13,7 @@ import {
   ConnectionMode,
   useStore,
 } from '@xyflow/react';
-import type { Node, Edge, NodeChange, Connection, OnReconnect } from '@xyflow/react';
+import type { Node, Edge, NodeChange, EdgeChange, Connection, OnReconnect } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
@@ -502,9 +502,25 @@ export function RoleMapCanvas({
           // Update tracked position
           sectionPositionsRef.current.set(sectionId, change.position);
 
-          // Save section position when drag ends
+          // Save section position when drag ends, and persist child group positions
           if (change.dragging === false) {
             onSectionPositionChange(sectionId, change.position);
+
+            // Groups were moved via setNodes during drag but their positions
+            // were never written to the data model. Persist them now.
+            const sectionIds = new Set([sectionId]);
+            map.sections.forEach(s => {
+              if (s.parentSectionId === sectionId) sectionIds.add(s.id);
+            });
+            // Read current React Flow positions from the position cache
+            map.groups.forEach(g => {
+              if (g.sectionId && sectionIds.has(g.sectionId)) {
+                const cached = positionCacheRef.current.get(g.id);
+                if (cached) {
+                  onNodePositionChange(g.id, cached);
+                }
+              }
+            });
           }
         }
 
@@ -543,6 +559,18 @@ export function RoleMapCanvas({
       });
     },
     [onNodesChange, onNodePositionChange, onSectionPositionChange, onDeleteNode, onDeleteSection, setNodes, map.groups, map.sections]
+  );
+
+  // Intercept edge remove changes — let onEdgesDelete handle the data model
+  // update, and filter removes out so React Flow doesn't double-process them.
+  const handleEdgesChange = useCallback(
+    (changes: EdgeChange[]) => {
+      const filtered = changes.filter(c => c.type !== 'remove');
+      if (filtered.length > 0) {
+        onEdgesChange(filtered);
+      }
+    },
+    [onEdgesChange]
   );
 
   const handleNodeClick = useCallback(
@@ -1115,7 +1143,7 @@ export function RoleMapCanvas({
         nodes={nodes}
         edges={edges}
         onNodesChange={handleNodesChange}
-        onEdgesChange={onEdgesChange}
+        onEdgesChange={handleEdgesChange}
         onEdgesDelete={handleEdgesDelete}
         onConnect={onConnect}
         onReconnect={onReconnect}
