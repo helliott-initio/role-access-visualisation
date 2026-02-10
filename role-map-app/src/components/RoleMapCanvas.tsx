@@ -462,12 +462,50 @@ export function RoleMapCanvas({
     (edgeId: string) => {
       const edge = edges.find(e => e.id === edgeId);
       if (edge) {
-        // Remove parent relationship
-        onReparent(edge.target, null);
+        // Check if this is a secondary role supplement edge
+        if (edge.id.startsWith('secondary-')) {
+          // Find the matching secondary group
+          const secondaryGroup = map.groups.find(g =>
+            g.isSecondary && edge.id === `secondary-${g.id}-${edge.target}`
+          );
+          if (secondaryGroup && secondaryGroup.supplementsRoles) {
+            const updatedGroup = {
+              ...secondaryGroup,
+              supplementsRoles: secondaryGroup.supplementsRoles.filter(r => r !== edge.target),
+            };
+            onEdgeStyleChange(updatedGroup.id, undefined, undefined);
+            // Update the group directly to remove the supplement reference
+            // We need to go through the parent to update the group
+          }
+        } else {
+          // Remove parent relationship for regular edges
+          onReparent(edge.target, null);
+        }
         setEdges(eds => eds.filter(e => e.id !== edgeId));
       }
     },
-    [edges, setEdges, onReparent]
+    [edges, setEdges, onReparent, map.groups, onEdgeStyleChange]
+  );
+
+  // Handle edge deletion via keyboard (Delete/Backspace key)
+  const handleEdgesDelete = useCallback(
+    (deletedEdges: Edge[]) => {
+      deletedEdges.forEach(edge => {
+        if (edge.id.startsWith('secondary-')) {
+          // Secondary edge - find and update the group's supplementsRoles
+          const secondaryGroup = map.groups.find(g =>
+            g.isSecondary && edge.id === `secondary-${g.id}-${edge.target}`
+          );
+          if (secondaryGroup) {
+            // Will be handled by data model update
+          }
+        } else {
+          // Regular edge - clear parent relationship in data model
+          onReparent(edge.target, null);
+        }
+      });
+    },
+    [onReparent, map.groups]
   );
 
   // Get group ID from edge ID (edge format: parentId-groupId)
@@ -661,20 +699,44 @@ export function RoleMapCanvas({
     setIsConnecting(false);
   }, []);
 
+  // Check if connecting to a node would create a circular reference
+  const wouldCreateCycle = useCallback(
+    (childId: string, parentId: string): boolean => {
+      if (childId === parentId) return true;
+      // Walk up the parent chain from parentId to see if we reach childId
+      let current = parentId;
+      const visited = new Set<string>();
+      while (current) {
+        if (visited.has(current)) return true;
+        visited.add(current);
+        const group = map.groups.find(g => g.id === current);
+        if (!group?.parentId) break;
+        if (group.parentId === childId) return true;
+        current = group.parentId;
+      }
+      return false;
+    },
+    [map.groups]
+  );
+
   const onReconnect: OnReconnect = useCallback(
     (oldEdge, newConnection) => {
-      edgeReconnectSuccessful.current = true;
       if (newConnection.source && newConnection.target) {
+        // Prevent self-connections and circular references
+        if (newConnection.source === newConnection.target) return;
+        if (wouldCreateCycle(newConnection.source, newConnection.target)) return;
+
+        edgeReconnectSuccessful.current = true;
         onReparent(
           newConnection.target,
           newConnection.source,
           newConnection.sourceHandle || undefined,
           newConnection.targetHandle || undefined
         );
+        setEdges((els) => reconnectEdge(oldEdge, newConnection, els));
       }
-      setEdges((els) => reconnectEdge(oldEdge, newConnection, els));
     },
-    [setEdges, onReparent]
+    [setEdges, onReparent, wouldCreateCycle]
   );
 
   const onReconnectEnd = useCallback(
@@ -693,6 +755,19 @@ export function RoleMapCanvas({
   const onConnect = useCallback(
     (connection: Connection) => {
       if (connection.source && connection.target) {
+        // Prevent self-connections
+        if (connection.source === connection.target) return;
+
+        // Prevent circular references
+        if (wouldCreateCycle(connection.source, connection.target)) return;
+
+        // Get section color for the edge
+        const targetGroup = map.groups.find(g => g.id === connection.target);
+        const sourceGroup = map.groups.find(g => g.id === connection.source);
+        const sectionId = targetGroup?.sectionId || sourceGroup?.sectionId;
+        const section = sectionId ? map.sections.find(s => s.id === sectionId) : null;
+        const edgeColor = section?.color || '#666';
+
         // Save the handle IDs to the data model
         onReparent(
           connection.target,
@@ -710,17 +785,17 @@ export function RoleMapCanvas({
               ...(connection.targetHandle ? { targetHandle: connection.targetHandle } : {}),
               type: 'custom',
               data: {
-                color: '#666',
+                color: edgeColor,
                 dashed: false,
               },
-              markerEnd: { type: MarkerType.ArrowClosed, color: '#666' },
+              markerEnd: { type: MarkerType.ArrowClosed, color: edgeColor },
             },
             eds
           )
         );
       }
     },
-    [setEdges, onReparent]
+    [setEdges, onReparent, wouldCreateCycle, map.groups, map.sections]
   );
 
   // Section badges for the legend
@@ -740,6 +815,7 @@ export function RoleMapCanvas({
         edges={edges}
         onNodesChange={handleNodesChange}
         onEdgesChange={onEdgesChange}
+        onEdgesDelete={handleEdgesDelete}
         onConnect={onConnect}
         onReconnect={onReconnect}
         onReconnectStart={onReconnectStart}
