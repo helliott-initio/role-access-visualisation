@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import type { Section } from '../types';
+import { ConfirmDialog } from './ConfirmDialog';
 
 interface SectionModalProps {
   section: Section | null;
@@ -72,6 +73,8 @@ export function SectionModal({
       id: isNew ? `${formData.name.toLowerCase().replace(/[^a-z0-9]/g, '-')}-${formData.id.split('-').pop()}` : formData.id,
     });
   };
+
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   const handleColorSelect = (preset: (typeof PRESET_COLORS)[0]) => {
     setFormData((prev) => ({
@@ -233,11 +236,7 @@ export function SectionModal({
               <button
                 type="button"
                 className="delete-btn"
-                onClick={() => {
-                  if (confirm('Are you sure? All groups in this section will also be deleted.')) {
-                    onDelete(formData.id);
-                  }
-                }}
+                onClick={() => setShowDeleteConfirm(true)}
               >
                 Delete Section
               </button>
@@ -250,6 +249,16 @@ export function SectionModal({
             </button>
           </div>
         </form>
+
+        {showDeleteConfirm && (
+          <ConfirmDialog
+            title="Delete Section"
+            message={`Delete "${formData.name}" and all groups inside it? This cannot be undone.`}
+            confirmLabel="Delete Section"
+            onConfirm={() => onDelete(formData.id)}
+            onCancel={() => setShowDeleteConfirm(false)}
+          />
+        )}
       </div>
     </div>
   );

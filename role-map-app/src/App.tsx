@@ -8,7 +8,16 @@ import { Toolbar } from './components/Toolbar';
 import { EditModal } from './components/EditModal';
 import { SectionModal } from './components/SectionModal';
 import { NewMapModal } from './components/NewMapModal';
+import { ConfirmDialog } from './components/ConfirmDialog';
 import type { RoleGroup, Section, RoleMap } from './types';
+
+interface ConfirmState {
+  title: string;
+  message: string;
+  confirmLabel?: string;
+  variant?: 'danger' | 'default';
+  onConfirm: () => void;
+}
 
 import './App.css';
 
@@ -52,6 +61,7 @@ function App() {
     saveNow,
   } = useFileHandle(state.maps);
 
+  const [confirmState, setConfirmState] = useState<ConfirmState | null>(null);
   const [showEditModal, setShowEditModal] = useState(false);
   const [showSectionModal, setShowSectionModal] = useState(false);
   const [showNewMapModal, setShowNewMapModal] = useState(false);
@@ -86,11 +96,16 @@ function App() {
 
   const handleDeleteNode = useCallback(
     (nodeId: string) => {
-      if (confirm('Are you sure you want to delete this role group?')) {
-        deleteGroup(nodeId);
-      }
+      const group = activeMap.groups.find(g => g.id === nodeId);
+      setConfirmState({
+        title: 'Delete Role Group',
+        message: group
+          ? `Delete "${group.label}"? This cannot be undone.`
+          : 'Are you sure you want to delete this role group?',
+        onConfirm: () => { deleteGroup(nodeId); setConfirmState(null); },
+      });
     },
-    [deleteGroup]
+    [deleteGroup, activeMap.groups]
   );
 
   const handleAddGroup = useCallback((parentId?: string, sectionId?: string) => {
@@ -124,10 +139,15 @@ function App() {
   }, [activeMap.sections]);
 
   const handleDeleteSectionDirect = useCallback((sectionId: string) => {
-    if (confirm('Are you sure? All groups in this section will also be deleted.')) {
-      deleteSection(sectionId);
-    }
-  }, [deleteSection]);
+    const section = activeMap.sections.find(s => s.id === sectionId);
+    setConfirmState({
+      title: 'Delete Section',
+      message: section
+        ? `Delete "${section.name}" and all groups inside it? This cannot be undone.`
+        : 'Delete this section and all its groups? This cannot be undone.',
+      onConfirm: () => { deleteSection(sectionId); setConfirmState(null); },
+    });
+  }, [deleteSection, activeMap.sections]);
 
   const handleSaveGroup = useCallback(
     (group: RoleGroup) => {
@@ -339,6 +359,17 @@ function App() {
         <NewMapModal
           onSave={handleSaveNewMap}
           onClose={() => setShowNewMapModal(false)}
+        />
+      )}
+
+      {confirmState && (
+        <ConfirmDialog
+          title={confirmState.title}
+          message={confirmState.message}
+          confirmLabel={confirmState.confirmLabel}
+          variant={confirmState.variant}
+          onConfirm={confirmState.onConfirm}
+          onCancel={() => setConfirmState(null)}
         />
       )}
     </div>

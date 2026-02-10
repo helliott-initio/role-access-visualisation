@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import type { RoleMap } from '../types';
 import type { SaveStatus } from '../hooks/useFileHandle';
+import { ConfirmDialog } from './ConfirmDialog';
 
 interface ToolbarProps {
   maps: RoleMap[];
@@ -150,6 +151,7 @@ export function Toolbar({
     input.click();
   };
 
+  const [deleteMapConfirm, setDeleteMapConfirm] = useState<{ id: string; name: string } | null>(null);
   const canDelete = maps.length > 1;
 
   return (
@@ -286,9 +288,7 @@ export function Toolbar({
                   className="hdr-tab-x"
                   onClick={(e) => {
                     e.stopPropagation();
-                    if (confirm(`Delete "${map.name}" map?`)) {
-                      onDeleteMap(map.id);
-                    }
+                    setDeleteMapConfirm({ id: map.id, name: map.name });
                   }}
                   title={`Delete ${map.name}`}
                 >
@@ -323,6 +323,19 @@ export function Toolbar({
           </button>
         </div>
       </div>
+
+      {deleteMapConfirm && (
+        <ConfirmDialog
+          title="Delete Map"
+          message={`Delete "${deleteMapConfirm.name}" map? This cannot be undone.`}
+          confirmLabel="Delete Map"
+          onConfirm={() => {
+            onDeleteMap(deleteMapConfirm.id);
+            setDeleteMapConfirm(null);
+          }}
+          onCancel={() => setDeleteMapConfirm(null)}
+        />
+      )}
     </header>
   );
 }

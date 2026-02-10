@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import type { RoleGroup, Section } from '../types';
 import { Combobox, MultiCombobox } from './Combobox';
+import { ConfirmDialog } from './ConfirmDialog';
 
 interface EditModalProps {
   group: RoleGroup | null;
@@ -67,6 +68,8 @@ export function EditModal({
       id: isNew ? `${emailPart.toLowerCase().replace(/[^a-z0-9]/g, '-')}-${prev.id.split('-').pop()}` : prev.id,
     }));
   };
+
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   const primaryGroups = allGroups.filter((g) => !g.isSecondary && g.id !== formData.id);
   const currentSection = sections.find((s) => s.id === formData.sectionId);
@@ -197,11 +200,7 @@ export function EditModal({
               <button
                 type="button"
                 className="delete-btn"
-                onClick={() => {
-                  if (confirm('Are you sure you want to delete this role group?')) {
-                    onDelete(formData.id);
-                  }
-                }}
+                onClick={() => setShowDeleteConfirm(true)}
               >
                 Delete
               </button>
@@ -214,6 +213,15 @@ export function EditModal({
             </button>
           </div>
         </form>
+
+        {showDeleteConfirm && (
+          <ConfirmDialog
+            title="Delete Role Group"
+            message={`Delete "${formData.label}"? This cannot be undone.`}
+            onConfirm={() => onDelete(formData.id)}
+            onCancel={() => setShowDeleteConfirm(false)}
+          />
+        )}
       </div>
     </div>
   );
