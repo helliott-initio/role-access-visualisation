@@ -31,9 +31,8 @@ function SectionContainer({ id, data, selected }: NodeProps) {
   // Header is ~36px tall (padding 8px + content + padding 8px)
   const headerHeight = 36;
   const headerCenter = headerHeight / 2;
-  const handleSize = 10;
 
-  // Base handle style - positioned on the header, not the full section
+  // Base handle style
   const baseHandleStyle = {
     background: 'white',
     width: 10,
@@ -77,7 +76,9 @@ function SectionContainer({ id, data, selected }: NodeProps) {
         </div>
       </div>
 
-      {/* Section handles - rendered after container so they paint above the header */}
+      {/* Section handles — standard positions, no CSS hacks.
+           React Flow measures DOM positions for edge endpoints and
+           uses the position prop for edge routing direction. */}
       <Handle
         type="source"
         position={Position.Top}
@@ -86,16 +87,11 @@ function SectionContainer({ id, data, selected }: NodeProps) {
         isConnectableStart={true}
         isConnectableEnd={true}
       />
-      {/* Bottom edge of header — offset by half handle size so the
-           edge connection point lands exactly on the header bottom */}
       <Handle
         type="source"
-        position={Position.Top}
-        id="header-bottom"
-        style={{
-          ...baseHandleStyle,
-          top: headerHeight + handleSize / 2,
-        }}
+        position={Position.Bottom}
+        id="bottom"
+        style={baseHandleStyle}
         isConnectableStart={true}
         isConnectableEnd={true}
       />
@@ -112,15 +108,6 @@ function SectionContainer({ id, data, selected }: NodeProps) {
         position={Position.Right}
         id="right"
         style={{ ...baseHandleStyle, top: headerCenter }}
-        isConnectableStart={true}
-        isConnectableEnd={true}
-      />
-      {/* Bottom of entire section */}
-      <Handle
-        type="source"
-        position={Position.Bottom}
-        id="bottom"
-        style={baseHandleStyle}
         isConnectableStart={true}
         isConnectableEnd={true}
       />

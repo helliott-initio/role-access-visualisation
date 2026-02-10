@@ -951,8 +951,6 @@ export function RoleMapCanvas({
         fitViewOptions={{ padding: 0.2 }}
         minZoom={0.3}
         maxZoom={2}
-        snapToGrid
-        snapGrid={[15, 15]}
         elevateEdgesOnSelect
         defaultEdgeOptions={{
           type: 'custom',
