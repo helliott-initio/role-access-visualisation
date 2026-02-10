@@ -8,6 +8,8 @@ const FILE_PICKER_TYPES = [
   },
 ];
 
+const LAST_FILE_KEY = 'role-map-last-file';
+
 async function writeToHandle(handle: FileSystemFileHandle, maps: RoleMap[]): Promise<void> {
   const writable = await handle.createWritable();
   try {
@@ -27,6 +29,11 @@ export function useFileHandle(maps: RoleMap[]) {
   const [fileName, setFileName] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
+
+  // Remember the last file the user was working with
+  const [lastFileName, setLastFileName] = useState<string | null>(() => {
+    return localStorage.getItem(LAST_FILE_KEY);
+  });
 
   const isSupported = typeof window !== 'undefined' && 'showOpenFilePicker' in window;
 
@@ -56,6 +63,8 @@ export function useFileHandle(maps: RoleMap[]) {
       fileHandleRef.current = handle;
       isInitialLoadRef.current = true;
       setFileName(handle.name);
+      setLastFileName(handle.name);
+      localStorage.setItem(LAST_FILE_KEY, handle.name);
       setSaveError(null);
       return mapsArr as RoleMap[];
     } catch (err: unknown) {
@@ -74,6 +83,8 @@ export function useFileHandle(maps: RoleMap[]) {
       });
       fileHandleRef.current = handle;
       setFileName(handle.name);
+      setLastFileName(handle.name);
+      localStorage.setItem(LAST_FILE_KEY, handle.name);
       setSaveError(null);
 
       await writeToHandle(handle, currentMaps);
@@ -92,6 +103,8 @@ export function useFileHandle(maps: RoleMap[]) {
     }
     fileHandleRef.current = null;
     setFileName(null);
+    setLastFileName(null);
+    localStorage.removeItem(LAST_FILE_KEY);
     setSaveError(null);
     setIsSaving(false);
   }, []);
@@ -139,8 +152,13 @@ export function useFileHandle(maps: RoleMap[]) {
     };
   }, [maps]);
 
+  // Whether we need the user to re-open their file (had a file last session but no handle now)
+  const needsReopen = isSupported && !fileName && !!lastFileName;
+
   return {
     fileName,
+    lastFileName,
+    needsReopen,
     isSaving,
     saveError,
     isSupported,

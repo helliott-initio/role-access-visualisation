@@ -18,6 +18,8 @@ interface ToolbarProps {
   onNewFile: () => void;
   onCloseFile: () => void;
   fileName: string | null;
+  lastFileName: string | null;
+  needsReopen: boolean;
   isSaving: boolean;
   saveError: string | null;
   isFileSystemSupported: boolean;
@@ -40,6 +42,8 @@ export function Toolbar({
   onNewFile,
   onCloseFile,
   fileName,
+  lastFileName: _lastFileName,
+  needsReopen: _needsReopen,
   isSaving,
   saveError,
   isFileSystemSupported,

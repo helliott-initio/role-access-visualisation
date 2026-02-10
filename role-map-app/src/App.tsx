@@ -40,6 +40,8 @@ function App() {
 
   const {
     fileName,
+    lastFileName,
+    needsReopen,
     isSaving,
     saveError,
     isSupported: isFileSystemSupported,
@@ -251,10 +253,24 @@ function App() {
         onNewFile={handleNewFile}
         onCloseFile={closeFile}
         fileName={fileName}
+        lastFileName={lastFileName}
+        needsReopen={needsReopen}
         isSaving={isSaving}
         saveError={saveError}
         isFileSystemSupported={isFileSystemSupported}
       />
+
+      {needsReopen && (
+        <div className="reopen-banner">
+          <span>You were editing <strong>{lastFileName}</strong> — re-open it to continue auto-saving.</span>
+          <button className="reopen-btn" onClick={handleOpenFile}>
+            Re-open File
+          </button>
+          <button className="reopen-dismiss" onClick={closeFile} title="Dismiss">
+            &times;
+          </button>
+        </div>
+      )}
 
       <main className="app-main" id="role-map-canvas">
         <ReactFlowProvider>
