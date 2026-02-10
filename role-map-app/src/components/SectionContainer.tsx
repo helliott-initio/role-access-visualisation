@@ -31,6 +31,7 @@ function SectionContainer({ id, data, selected }: NodeProps) {
   // Header is ~36px tall (padding 8px + content + padding 8px)
   const headerHeight = 36;
   const headerCenter = headerHeight / 2;
+  const handleSize = 10;
 
   // Base handle style - positioned on the header, not the full section
   const baseHandleStyle = {
@@ -85,15 +86,15 @@ function SectionContainer({ id, data, selected }: NodeProps) {
         isConnectableStart={true}
         isConnectableEnd={true}
       />
-      {/* Bottom edge of header */}
+      {/* Bottom edge of header — offset by half handle size so the
+           edge connection point lands exactly on the header bottom */}
       <Handle
         type="source"
         position={Position.Top}
         id="header-bottom"
         style={{
           ...baseHandleStyle,
-          top: headerHeight,
-          transform: 'translate(-50%, -50%)',
+          top: headerHeight + handleSize / 2,
         }}
         isConnectableStart={true}
         isConnectableEnd={true}
