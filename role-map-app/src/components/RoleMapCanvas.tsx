@@ -1032,7 +1032,6 @@ export function RoleMapCanvas({
         }}
       >
         <Background color="#e0e0e0" gap={20} />
-        {guideLines.length > 0 && <AlignmentGuides guideLines={guideLines} />}
         <Controls />
         <MiniMap
           nodeColor={(node) => {
@@ -1066,6 +1065,8 @@ export function RoleMapCanvas({
           ))}
         </Panel>
       </ReactFlow>
+
+      {guideLines.length > 0 && <AlignmentGuides guideLines={guideLines} />}
 
       {contextMenu.show && (
         <ContextMenu
