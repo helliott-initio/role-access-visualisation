@@ -233,14 +233,10 @@ function App() {
 
   return (
     <div className="app">
-      <header className="app-header">
-        <h1>Role Access Visualisation</h1>
-        <p className="domain-label">{activeMap.domain}</p>
-      </header>
-
       <Toolbar
         maps={state.maps}
         activeMapId={state.activeMapId}
+        activeMapDomain={activeMap.domain}
         showSecondaryRoles={state.showSecondaryRoles}
         onMapChange={setActiveMap}
         onToggleSecondaryRoles={toggleSecondaryRoles}
