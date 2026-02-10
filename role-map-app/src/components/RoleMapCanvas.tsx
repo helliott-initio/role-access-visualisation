@@ -1011,17 +1011,44 @@ export function RoleMapCanvas({
   const handleNodeDrag = useCallback(
     (_: React.MouseEvent, dragNode: Node) => {
       const isSection = dragNode.id.startsWith('section-');
-      // Sections snap only to other sections; role nodes snap to everything
-      const candidates = isSection
+      const isDepartment = isSection && !!dragNode.parentId;
+
+      // Departments → everything; top-level sections → all sections; groups → everything
+      const candidates = isSection && !isDepartment
         ? nodes.filter(n => n.id.startsWith('section-'))
         : nodes;
 
-      const result = findAlignments(dragNode, candidates);
+      // Compute absolute offset for child nodes (departments use relative coords)
+      const getAbsOffset = (node: Node): { x: number; y: number } => {
+        if (!node.parentId) return { x: 0, y: 0 };
+        const parent = nodes.find(n => n.id === node.parentId);
+        if (!parent) return { x: 0, y: 0 };
+        const po = getAbsOffset(parent);
+        return { x: parent.position.x + po.x, y: parent.position.y + po.y };
+      };
+
+      const dragOffset = getAbsOffset(dragNode);
+      const absDragNode = {
+        ...dragNode,
+        position: {
+          x: dragNode.position.x + dragOffset.x,
+          y: dragNode.position.y + dragOffset.y,
+        },
+      };
+      const absCandidates = candidates.map(n => {
+        const off = getAbsOffset(n);
+        return off.x || off.y
+          ? { ...n, position: { x: n.position.x + off.x, y: n.position.y + off.y } }
+          : n;
+      });
+
+      const result = findAlignments(absDragNode, absCandidates);
 
       if (result.snapX !== null || result.snapY !== null) {
+        // Convert absolute snap back to relative for child nodes
         const snappedPos = {
-          x: result.snapX ?? dragNode.position.x,
-          y: result.snapY ?? dragNode.position.y,
+          x: (result.snapX ?? absDragNode.position.x) - dragOffset.x,
+          y: (result.snapY ?? absDragNode.position.y) - dragOffset.y,
         };
         snappedPositionRef.current.set(dragNode.id, snappedPos);
         setNodes(nds =>
