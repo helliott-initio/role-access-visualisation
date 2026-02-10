@@ -48,7 +48,6 @@ function App() {
     openFile,
     newFile,
     closeFile,
-    markLoaded,
   } = useFileHandle(state.maps);
 
   const [showEditModal, setShowEditModal] = useState(false);
@@ -203,10 +202,9 @@ function App() {
   const handleOpenFile = useCallback(async () => {
     const maps = await openFile();
     if (maps) {
-      markLoaded(maps);
       loadMaps(maps);
     }
-  }, [openFile, loadMaps, markLoaded]);
+  }, [openFile, loadMaps]);
 
   const handleNewFile = useCallback(async () => {
     await newFile(state.maps);

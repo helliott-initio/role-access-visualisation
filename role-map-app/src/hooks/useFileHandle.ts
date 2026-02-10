@@ -29,8 +29,9 @@ export function useFileHandle(maps: RoleMap[]) {
   // Always keep the latest maps in a ref so the debounced write uses fresh data
   const mapsRef = useRef(maps);
   mapsRef.current = maps;
-  // Track the maps reference that was loaded from file — skip saving until maps diverges from it
-  const loadedMapsRef = useRef<RoleMap[] | null>(null);
+
+  // Compact JSON snapshot of what was last saved/loaded — used to detect real changes
+  const lastSavedJsonRef = useRef<string>('');
 
   const [fileName, setFileName] = useState<string | null>(null);
   const [saveStatus, setSaveStatus] = useState<SaveStatus>('idle');
@@ -67,6 +68,8 @@ export function useFileHandle(maps: RoleMap[]) {
       if (!isValid || mapsArr.length === 0) return null;
 
       fileHandleRef.current = handle;
+      // Snapshot what we just loaded so the effect knows it's already saved
+      lastSavedJsonRef.current = JSON.stringify(mapsArr);
       setFileName(handle.name);
       setLastFileName(handle.name);
       localStorage.setItem(LAST_FILE_KEY, handle.name);
@@ -96,8 +99,7 @@ export function useFileHandle(maps: RoleMap[]) {
       setSaveError(null);
 
       await writeToHandle(handle, currentMaps);
-      // Mark current maps as "already saved" so the effect doesn't re-save
-      loadedMapsRef.current = currentMaps;
+      lastSavedJsonRef.current = JSON.stringify(currentMaps);
       setSaveStatus('saved');
       return true;
     } catch (err: unknown) {
@@ -114,7 +116,7 @@ export function useFileHandle(maps: RoleMap[]) {
       clearTimeout(saveTimerRef.current);
     }
     fileHandleRef.current = null;
-    loadedMapsRef.current = null;
+    lastSavedJsonRef.current = '';
     setFileName(null);
     setLastFileName(null);
     localStorage.removeItem(LAST_FILE_KEY);
@@ -122,23 +124,17 @@ export function useFileHandle(maps: RoleMap[]) {
     setSaveError(null);
   }, []);
 
-  // Called from App.tsx after openFile returns maps and loadMaps applies them
-  // Marks those maps as "already saved" so the effect skips the first cycle
-  const markLoaded = useCallback((loadedMaps: RoleMap[]) => {
-    loadedMapsRef.current = loadedMaps;
-  }, []);
-
-  // Debounced auto-save: mark unsaved immediately, write after 500ms of quiet
+  // Debounced auto-save: compare against last-saved snapshot to detect real changes
   useEffect(() => {
     if (!fileHandleRef.current) return;
 
-    // Skip if these maps came from the file we just loaded/saved (same reference)
-    if (loadedMapsRef.current !== null) {
-      loadedMapsRef.current = null;
+    // Compare current maps with what was last written/loaded
+    const currentJson = JSON.stringify(maps);
+    if (currentJson === lastSavedJsonRef.current) {
       return;
     }
 
-    // Mark as unsaved immediately when data changes
+    // Data actually changed — mark unsaved and schedule write
     setSaveStatus('unsaved');
 
     if (saveTimerRef.current) {
@@ -151,7 +147,10 @@ export function useFileHandle(maps: RoleMap[]) {
 
       setSaveStatus('saving');
       try {
-        await writeToHandle(handle, mapsRef.current);
+        // Use mapsRef.current for the very latest data
+        const latestMaps = mapsRef.current;
+        await writeToHandle(handle, latestMaps);
+        lastSavedJsonRef.current = JSON.stringify(latestMaps);
         setSaveStatus('saved');
         setSaveError(null);
       } catch (err) {
@@ -186,6 +185,5 @@ export function useFileHandle(maps: RoleMap[]) {
     openFile,
     newFile,
     closeFile,
-    markLoaded,
   };
 }
