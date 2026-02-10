@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback, useRef, useEffect, useState } from 'react';
 
 interface ContextMenuProps {
   x: number;
@@ -55,14 +55,31 @@ export function ContextMenu({
     [onClose]
   );
 
+  const menuRef = useRef<HTMLDivElement>(null);
+  const [adjustedPos, setAdjustedPos] = useState({ left: x, top: y });
+
+  useEffect(() => {
+    if (menuRef.current) {
+      const rect = menuRef.current.getBoundingClientRect();
+      const padding = 8;
+      const newLeft = Math.min(x, window.innerWidth - rect.width - padding);
+      const newTop = Math.min(y, window.innerHeight - rect.height - padding);
+      setAdjustedPos({
+        left: Math.max(padding, newLeft),
+        top: Math.max(padding, newTop),
+      });
+    }
+  }, [x, y]);
+
   return (
     <>
       <div className="context-menu-backdrop" onClick={onClose} />
       <div
+        ref={menuRef}
         className="context-menu"
         style={{
-          left: x,
-          top: y,
+          left: adjustedPos.left,
+          top: adjustedPos.top,
         }}
       >
         {nodeType === 'role' && (

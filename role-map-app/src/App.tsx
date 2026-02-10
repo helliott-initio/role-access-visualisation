@@ -27,6 +27,9 @@ function App() {
     updateSectionPosition,
     reparentGroup,
     updateEdgeStyle,
+    addConnection,
+    removeConnection,
+    updateConnectionStyle,
     exportData,
     importData,
     addMap,
@@ -211,6 +214,9 @@ function App() {
             onEdgeStyleChange={updateEdgeStyle}
             onToggleSectionCollapse={toggleSectionCollapse}
             onReparent={handleReparent}
+            onAddConnection={addConnection}
+            onRemoveConnection={removeConnection}
+            onUpdateConnectionStyle={updateConnectionStyle}
             onEditNode={handleEditNode}
             onDeleteNode={handleDeleteNode}
             onAddGroup={handleAddGroup}

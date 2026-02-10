@@ -30,12 +30,28 @@ export interface Section {
   size?: { width: number; height: number }; // Section container size
 }
 
+export interface MapConnection {
+  id: string;
+  source: string;
+  target: string;
+  sourceHandle?: string;
+  targetHandle?: string;
+  label?: string;
+  style?: {
+    dashed?: boolean;
+    animated?: boolean;
+    arrowAtStart?: boolean;
+    noArrow?: boolean;
+  };
+}
+
 export interface RoleMap {
   id: string;
   name: string;
   domain: string;
   sections: Section[];
   groups: RoleGroup[];
+  connections?: MapConnection[]; // Standalone edges not tied to parentId
   rootGroupId: string;
 }
 

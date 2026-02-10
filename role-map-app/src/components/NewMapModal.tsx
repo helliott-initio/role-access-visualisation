@@ -12,7 +12,7 @@ export function NewMapModal({ onSave, onClose }: NewMapModalProps) {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    const id = name.toLowerCase().replace(/[^a-z0-9]/g, '-');
+    const id = `${name.toLowerCase().replace(/[^a-z0-9]/g, '-')}-${crypto.randomUUID().slice(0, 8)}`;
     const newMap: RoleMap = {
       id,
       name,

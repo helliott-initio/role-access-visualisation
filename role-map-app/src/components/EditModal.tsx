@@ -38,7 +38,7 @@ export function EditModal({
       setFormData(group);
     } else {
       setFormData({
-        id: `group-${Date.now()}`,
+        id: `group-${crypto.randomUUID().slice(0, 8)}`,
         email: '',
         label: '',
         parentId: null,
@@ -62,7 +62,7 @@ export function EditModal({
     setFormData((prev) => ({
       ...prev,
       email: emailPart,
-      id: isNew ? emailPart.toLowerCase().replace(/[^a-z0-9]/g, '-') : prev.id,
+      id: isNew ? `${emailPart.toLowerCase().replace(/[^a-z0-9]/g, '-')}-${prev.id.split('-').pop()}` : prev.id,
     }));
   };
 

@@ -23,7 +23,7 @@ import SectionContainer from './SectionContainer';
 import CustomEdge from './CustomEdge';
 import { ContextMenu } from './ContextMenu';
 import { getLayoutedElements } from '../utils/layout';
-import type { RoleMap, Section } from '../types';
+import type { RoleMap, Section, MapConnection } from '../types';
 
 const nodeTypes = {
   roleNode: RoleNode,
@@ -53,6 +53,9 @@ interface RoleMapCanvasProps {
   onEdgeStyleChange: (groupId: string, edgeLabel?: string, edgeStyle?: { dashed?: boolean; animated?: boolean; arrowAtStart?: boolean; noArrow?: boolean }) => void;
   onToggleSectionCollapse: (sectionId: string) => void;
   onReparent: (childId: string, newParentId: string | null, sourceHandle?: string, targetHandle?: string) => void;
+  onAddConnection: (connection: MapConnection) => void;
+  onRemoveConnection: (connectionId: string) => void;
+  onUpdateConnectionStyle: (connectionId: string, label?: string, style?: MapConnection['style']) => void;
   onEditNode: (nodeId: string) => void;
   onDeleteNode: (nodeId: string) => void;
   onAddGroup: (parentId?: string, sectionId?: string) => void;
@@ -70,6 +73,9 @@ export function RoleMapCanvas({
   onEdgeStyleChange,
   onToggleSectionCollapse,
   onReparent,
+  onAddConnection,
+  onRemoveConnection,
+  onUpdateConnectionStyle,
   onEditNode,
   onDeleteNode,
   onAddGroup,
@@ -215,8 +221,43 @@ export function RoleMapCanvas({
       }
     });
 
+    // Create edges from standalone connections
+    (map.connections || []).forEach((conn) => {
+      // Only render if both source and target are visible
+      if (visibleGroups.some(g => g.id === conn.source) && visibleGroups.some(g => g.id === conn.target)) {
+        const sourceGroup = map.groups.find(g => g.id === conn.source);
+        const targetGroup = map.groups.find(g => g.id === conn.target);
+        const sectionId = targetGroup?.sectionId || sourceGroup?.sectionId;
+        const section = sectionId ? map.sections.find(s => s.id === sectionId) : null;
+        const color = section?.color || '#666';
+        const connStyle = conn.style || {};
+
+        edges.push({
+          id: `conn-${conn.id}`,
+          source: conn.source,
+          target: conn.target,
+          ...(conn.sourceHandle ? { sourceHandle: conn.sourceHandle } : {}),
+          ...(conn.targetHandle ? { targetHandle: conn.targetHandle } : {}),
+          type: 'custom',
+          animated: connStyle.animated || false,
+          reconnectable: true,
+          data: {
+            label: conn.label || '',
+            color,
+            dashed: connStyle.dashed || false,
+          },
+          markerStart: connStyle.arrowAtStart && !connStyle.noArrow
+            ? { type: MarkerType.ArrowClosed, color }
+            : undefined,
+          markerEnd: !connStyle.arrowAtStart && !connStyle.noArrow
+            ? { type: MarkerType.ArrowClosed, color }
+            : undefined,
+        });
+      }
+    });
+
     return { builtNodes: nodes, builtEdges: edges };
-  }, [map.sections, map.groups, map.rootGroupId, showSecondaryRoles, getSectionForGroup]);
+  }, [map.sections, map.groups, map.rootGroupId, map.connections, showSecondaryRoles, getSectionForGroup]);
 
   // Apply initial layout only once
   const getInitialNodes = useCallback(() => {
@@ -349,22 +390,25 @@ export function RoleMapCanvas({
               if (section) {
                 const sectionPos = section.position || { x: 0, y: 0 };
                 const sectionWidth = section.size?.width || 250;
-                const nodeWidth = 150; // Approximate node width
-                const padding = 20; // Padding inside section
+                const pos = change.position;
 
-                // Calculate center X position for the node within the section
-                const centerX = sectionPos.x + padding + (sectionWidth - 2 * padding - nodeWidth) / 2;
+                // Get actual measured node width from current nodes
+                setNodes(currentNodes => {
+                  const currentNode = currentNodes.find(n => n.id === change.id);
+                  const nodeWidth = currentNode?.measured?.width || 200;
 
-                // Snap to center if within 25px
-                if (Math.abs(change.position.x - centerX) < 25) {
-                  finalPosition = { ...change.position, x: centerX };
-                  // Update the node position in state
-                  setNodes(currentNodes =>
-                    currentNodes.map(n =>
+                  // Calculate center X position for the node within the section
+                  const centerX = sectionPos.x + (sectionWidth - nodeWidth) / 2;
+
+                  // Snap to center if within 30px (must be larger than grid size of 15px)
+                  if (pos && Math.abs(pos.x - centerX) < 30) {
+                    finalPosition = { x: centerX, y: pos.y };
+                    return currentNodes.map(n =>
                       n.id === change.id ? { ...n, position: finalPosition } : n
-                    )
-                  );
-                }
+                    );
+                  }
+                  return currentNodes;
+                });
               }
             }
 
@@ -462,20 +506,18 @@ export function RoleMapCanvas({
     (edgeId: string) => {
       const edge = edges.find(e => e.id === edgeId);
       if (edge) {
-        // Check if this is a secondary role supplement edge
-        if (edge.id.startsWith('secondary-')) {
-          // Find the matching secondary group
+        if (edge.id.startsWith('conn-')) {
+          // Standalone connection - remove from connections array
+          const connId = edge.id.replace('conn-', '');
+          onRemoveConnection(connId);
+        } else if (edge.id.startsWith('secondary-')) {
+          // Secondary role supplement edge - update the group's supplementsRoles
           const secondaryGroup = map.groups.find(g =>
             g.isSecondary && edge.id === `secondary-${g.id}-${edge.target}`
           );
           if (secondaryGroup && secondaryGroup.supplementsRoles) {
-            const updatedGroup = {
-              ...secondaryGroup,
-              supplementsRoles: secondaryGroup.supplementsRoles.filter(r => r !== edge.target),
-            };
-            onEdgeStyleChange(updatedGroup.id, undefined, undefined);
-            // Update the group directly to remove the supplement reference
-            // We need to go through the parent to update the group
+            // TODO: This needs a proper updateGroup call to remove from supplementsRoles - tracked in task #11
+            onEdgeStyleChange(secondaryGroup.id, undefined, undefined);
           }
         } else {
           // Remove parent relationship for regular edges
@@ -484,35 +526,43 @@ export function RoleMapCanvas({
         setEdges(eds => eds.filter(e => e.id !== edgeId));
       }
     },
-    [edges, setEdges, onReparent, map.groups, onEdgeStyleChange]
+    [edges, setEdges, onReparent, onRemoveConnection, map.groups, onEdgeStyleChange]
   );
 
   // Handle edge deletion via keyboard (Delete/Backspace key)
   const handleEdgesDelete = useCallback(
     (deletedEdges: Edge[]) => {
       deletedEdges.forEach(edge => {
-        if (edge.id.startsWith('secondary-')) {
-          // Secondary edge - find and update the group's supplementsRoles
-          const secondaryGroup = map.groups.find(g =>
-            g.isSecondary && edge.id === `secondary-${g.id}-${edge.target}`
-          );
-          if (secondaryGroup) {
-            // Will be handled by data model update
-          }
+        if (edge.id.startsWith('conn-')) {
+          // Standalone connection
+          const connId = edge.id.replace('conn-', '');
+          onRemoveConnection(connId);
+        } else if (edge.id.startsWith('secondary-')) {
+          // Secondary edge - handled by data model
         } else {
           // Regular edge - clear parent relationship in data model
           onReparent(edge.target, null);
         }
       });
     },
-    [onReparent, map.groups]
+    [onReparent, onRemoveConnection]
   );
 
-  // Get group ID from edge ID (edge format: parentId-groupId)
+  // Get group ID from edge ID (edge format: parentId-groupId or conn-connId)
   const getGroupIdFromEdge = useCallback((edgeId: string) => {
     const edge = edges.find(e => e.id === edgeId);
     return edge?.target || null;
   }, [edges]);
+
+  // Check if an edge is a standalone connection
+  const isConnectionEdge = useCallback((edgeId: string) => {
+    return edgeId.startsWith('conn-');
+  }, []);
+
+  // Get connection ID from edge ID
+  const getConnectionIdFromEdge = useCallback((edgeId: string) => {
+    return edgeId.replace('conn-', '');
+  }, []);
 
   // Add/update edge label
   const handleUpdateEdgeLabel = useCallback(
@@ -525,12 +575,16 @@ export function RoleMapCanvas({
         )
       );
       // Persist to data model
-      const groupId = getGroupIdFromEdge(edgeId);
-      if (groupId) {
-        onEdgeStyleChange(groupId, label, undefined);
+      if (isConnectionEdge(edgeId)) {
+        onUpdateConnectionStyle(getConnectionIdFromEdge(edgeId), label, undefined);
+      } else {
+        const groupId = getGroupIdFromEdge(edgeId);
+        if (groupId) {
+          onEdgeStyleChange(groupId, label, undefined);
+        }
       }
     },
-    [setEdges, getGroupIdFromEdge, onEdgeStyleChange]
+    [setEdges, getGroupIdFromEdge, isConnectionEdge, getConnectionIdFromEdge, onEdgeStyleChange, onUpdateConnectionStyle]
   );
 
   // Reverse edge direction (visual only - swaps arrow position)
@@ -569,12 +623,16 @@ export function RoleMapCanvas({
       );
 
       // Persist to data model
-      const groupId = getGroupIdFromEdge(edgeId);
-      if (groupId) {
-        onEdgeStyleChange(groupId, undefined, { arrowAtStart: newArrowAtStart, noArrow: false });
+      if (isConnectionEdge(edgeId)) {
+        onUpdateConnectionStyle(getConnectionIdFromEdge(edgeId), undefined, { arrowAtStart: newArrowAtStart, noArrow: false });
+      } else {
+        const groupId = getGroupIdFromEdge(edgeId);
+        if (groupId) {
+          onEdgeStyleChange(groupId, undefined, { arrowAtStart: newArrowAtStart, noArrow: false });
+        }
       }
     },
-    [setEdges, getGroupIdFromEdge, onEdgeStyleChange]
+    [setEdges, getGroupIdFromEdge, isConnectionEdge, getConnectionIdFromEdge, onEdgeStyleChange, onUpdateConnectionStyle]
   );
 
   // Update edge style
@@ -627,12 +685,18 @@ export function RoleMapCanvas({
       );
 
       // Persist to data model
-      const groupId = getGroupIdFromEdge(edgeId);
-      if (groupId && Object.keys(persistedStyle).length > 0) {
-        onEdgeStyleChange(groupId, undefined, persistedStyle);
+      if (Object.keys(persistedStyle).length > 0) {
+        if (isConnectionEdge(edgeId)) {
+          onUpdateConnectionStyle(getConnectionIdFromEdge(edgeId), undefined, persistedStyle);
+        } else {
+          const groupId = getGroupIdFromEdge(edgeId);
+          if (groupId) {
+            onEdgeStyleChange(groupId, undefined, persistedStyle);
+          }
+        }
       }
     },
-    [setEdges, getGroupIdFromEdge, onEdgeStyleChange]
+    [setEdges, getGroupIdFromEdge, isConnectionEdge, getConnectionIdFromEdge, onEdgeStyleChange, onUpdateConnectionStyle]
   );
 
   const closeContextMenu = useCallback(() => {
@@ -751,15 +815,12 @@ export function RoleMapCanvas({
     [setEdges, onReparent]
   );
 
-  // Handle new connections (add parent relationship)
+  // Handle new connections (add parent relationship or standalone connection)
   const onConnect = useCallback(
     (connection: Connection) => {
       if (connection.source && connection.target) {
         // Prevent self-connections
         if (connection.source === connection.target) return;
-
-        // Prevent circular references
-        if (wouldCreateCycle(connection.source, connection.target)) return;
 
         // Get section color for the edge
         const targetGroup = map.groups.find(g => g.id === connection.target);
@@ -768,34 +829,70 @@ export function RoleMapCanvas({
         const section = sectionId ? map.sections.find(s => s.id === sectionId) : null;
         const edgeColor = section?.color || '#666';
 
-        // Save the handle IDs to the data model
-        onReparent(
-          connection.target,
-          connection.source,
-          connection.sourceHandle || undefined,
-          connection.targetHandle || undefined
-        );
-        setEdges((eds) =>
-          addEdge(
-            {
-              id: `${connection.source}-${connection.target}`,
-              source: connection.source,
-              target: connection.target,
-              ...(connection.sourceHandle ? { sourceHandle: connection.sourceHandle } : {}),
-              ...(connection.targetHandle ? { targetHandle: connection.targetHandle } : {}),
-              type: 'custom',
-              data: {
-                color: edgeColor,
-                dashed: false,
+        // Check if target already has a parent - if so, add as standalone connection
+        const targetHasParent = targetGroup?.parentId != null;
+
+        if (targetHasParent) {
+          // Add as standalone connection (allows multiple edges to same node)
+          const connId = crypto.randomUUID().slice(0, 12);
+          onAddConnection({
+            id: connId,
+            source: connection.source,
+            target: connection.target,
+            sourceHandle: connection.sourceHandle || undefined,
+            targetHandle: connection.targetHandle || undefined,
+          });
+          setEdges((eds) =>
+            addEdge(
+              {
+                id: `conn-${connId}`,
+                source: connection.source,
+                target: connection.target,
+                ...(connection.sourceHandle ? { sourceHandle: connection.sourceHandle } : {}),
+                ...(connection.targetHandle ? { targetHandle: connection.targetHandle } : {}),
+                type: 'custom',
+                data: {
+                  color: edgeColor,
+                  dashed: false,
+                },
+                markerEnd: { type: MarkerType.ArrowClosed, color: edgeColor },
               },
-              markerEnd: { type: MarkerType.ArrowClosed, color: edgeColor },
-            },
-            eds
-          )
-        );
+              eds
+            )
+          );
+        } else {
+          // Prevent circular references (only applies to parent-child edges)
+          if (wouldCreateCycle(connection.source, connection.target)) return;
+
+          // Save the handle IDs to the data model as parent relationship
+          onReparent(
+            connection.target,
+            connection.source,
+            connection.sourceHandle || undefined,
+            connection.targetHandle || undefined
+          );
+          setEdges((eds) =>
+            addEdge(
+              {
+                id: `${connection.source}-${connection.target}`,
+                source: connection.source,
+                target: connection.target,
+                ...(connection.sourceHandle ? { sourceHandle: connection.sourceHandle } : {}),
+                ...(connection.targetHandle ? { targetHandle: connection.targetHandle } : {}),
+                type: 'custom',
+                data: {
+                  color: edgeColor,
+                  dashed: false,
+                },
+                markerEnd: { type: MarkerType.ArrowClosed, color: edgeColor },
+              },
+              eds
+            )
+          );
+        }
       }
     },
-    [setEdges, onReparent, wouldCreateCycle, map.groups, map.sections]
+    [setEdges, onReparent, onAddConnection, wouldCreateCycle, map.groups, map.sections]
   );
 
   // Section badges for the legend

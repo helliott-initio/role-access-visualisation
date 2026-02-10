@@ -43,7 +43,7 @@ export function SectionModal({
       setFormData({ ...section, type: section.type || 'primary' });
     } else {
       setFormData({
-        id: `section-${Date.now()}`,
+        id: `section-${crypto.randomUUID().slice(0, 8)}`,
         name: '',
         color: PRESET_COLORS[0].color,
         bgColor: PRESET_COLORS[0].bgColor,
@@ -57,7 +57,7 @@ export function SectionModal({
     e.preventDefault();
     onSave({
       ...formData,
-      id: isNew ? formData.name.toLowerCase().replace(/[^a-z0-9]/g, '-') : formData.id,
+      id: isNew ? `${formData.name.toLowerCase().replace(/[^a-z0-9]/g, '-')}-${formData.id.split('-').pop()}` : formData.id,
     });
   };
 

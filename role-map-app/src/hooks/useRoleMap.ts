@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect } from 'react';
-import type { RoleMap, RoleGroup, Section, AppState } from '../types';
+import type { RoleMap, RoleGroup, Section, AppState, MapConnection } from '../types';
 import { simpleStarterMap } from '../data/simpleStarterMap';
 
 const STORAGE_KEY = 'role-map-data';
@@ -66,22 +66,29 @@ export function useRoleMap() {
       selectedNodeId: null,
       maps: prev.maps.map((map) => {
         if (map.id !== prev.activeMapId) return map;
-        // Also update any groups that had this as parent
+        // Clean up all references to the deleted group
         const newGroups = map.groups
           .filter((g) => g.id !== groupId)
           .map((g) => {
+            let updated = g;
+            // Clear parent reference and orphaned handle data
             if (g.parentId === groupId) {
-              return { ...g, parentId: null };
+              updated = { ...updated, parentId: null, sourceHandle: undefined, targetHandle: undefined };
             }
+            // Clear from supplementsRoles
             if (g.supplementsRoles?.includes(groupId)) {
-              return {
-                ...g,
+              updated = {
+                ...updated,
                 supplementsRoles: g.supplementsRoles.filter((r) => r !== groupId),
               };
             }
-            return g;
+            return updated;
           });
-        return { ...map, groups: newGroups };
+        // Also remove standalone connections referencing the deleted group
+        const newConnections = (map.connections || []).filter(
+          (c) => c.source !== groupId && c.target !== groupId
+        );
+        return { ...map, groups: newGroups, connections: newConnections };
       }),
     }));
   }, []);
@@ -116,10 +123,37 @@ export function useRoleMap() {
       ...prev,
       maps: prev.maps.map((map) => {
         if (map.id !== prev.activeMapId) return map;
+        // Get IDs of groups being deleted with the section
+        const deletedGroupIds = new Set(
+          map.groups.filter(g => g.sectionId === sectionId).map(g => g.id)
+        );
+        // Remove groups in section and clean up references from surviving groups
+        const survivingGroups = map.groups
+          .filter((g) => g.sectionId !== sectionId)
+          .map((g) => {
+            let updated = g;
+            // Clear parent reference if parent was in deleted section
+            if (g.parentId && deletedGroupIds.has(g.parentId)) {
+              updated = { ...updated, parentId: null, sourceHandle: undefined, targetHandle: undefined };
+            }
+            // Clear from supplementsRoles
+            if (g.supplementsRoles?.some(r => deletedGroupIds.has(r))) {
+              updated = {
+                ...updated,
+                supplementsRoles: g.supplementsRoles!.filter(r => !deletedGroupIds.has(r)),
+              };
+            }
+            return updated;
+          });
+        // Remove standalone connections referencing deleted groups
+        const newConnections = (map.connections || []).filter(
+          (c) => !deletedGroupIds.has(c.source) && !deletedGroupIds.has(c.target)
+        );
         return {
           ...map,
           sections: map.sections.filter((s) => s.id !== sectionId),
-          groups: map.groups.filter((g) => g.sectionId !== sectionId),
+          groups: survivingGroups,
+          connections: newConnections,
         };
       }),
     }));
@@ -230,6 +264,50 @@ export function useRoleMap() {
     }));
   }, []);
 
+  const addConnection = useCallback((connection: MapConnection) => {
+    setState((prev) => ({
+      ...prev,
+      maps: prev.maps.map((map) => {
+        if (map.id !== prev.activeMapId) return map;
+        const existing = map.connections || [];
+        return { ...map, connections: [...existing, connection] };
+      }),
+    }));
+  }, []);
+
+  const removeConnection = useCallback((connectionId: string) => {
+    setState((prev) => ({
+      ...prev,
+      maps: prev.maps.map((map) => {
+        if (map.id !== prev.activeMapId) return map;
+        return {
+          ...map,
+          connections: (map.connections || []).filter((c) => c.id !== connectionId),
+        };
+      }),
+    }));
+  }, []);
+
+  const updateConnectionStyle = useCallback((connectionId: string, label?: string, style?: MapConnection['style']) => {
+    setState((prev) => ({
+      ...prev,
+      maps: prev.maps.map((map) => {
+        if (map.id !== prev.activeMapId) return map;
+        return {
+          ...map,
+          connections: (map.connections || []).map((c) => {
+            if (c.id !== connectionId) return c;
+            return {
+              ...c,
+              ...(label !== undefined && { label }),
+              ...(style !== undefined && { style: { ...c.style, ...style } }),
+            };
+          }),
+        };
+      }),
+    }));
+  }, []);
+
   const addMap = useCallback((map: RoleMap) => {
     setState((prev) => ({
       ...prev,
@@ -262,11 +340,24 @@ export function useRoleMap() {
 
   const importData = useCallback((jsonString: string) => {
     try {
-      const maps = JSON.parse(jsonString) as RoleMap[];
+      const parsed = JSON.parse(jsonString);
+      // Validate basic structure
+      const maps = Array.isArray(parsed) ? parsed : [parsed];
+      const isValid = maps.every((m: unknown) => {
+        if (!m || typeof m !== 'object') return false;
+        const map = m as Record<string, unknown>;
+        return (
+          typeof map.id === 'string' &&
+          typeof map.name === 'string' &&
+          Array.isArray(map.sections) &&
+          Array.isArray(map.groups)
+        );
+      });
+      if (!isValid || maps.length === 0) return false;
       setState((prev) => ({
         ...prev,
-        maps,
-        activeMapId: maps[0]?.id || prev.activeMapId,
+        maps: maps as RoleMap[],
+        activeMapId: (maps[0] as RoleMap).id || prev.activeMapId,
       }));
       return true;
     } catch {
@@ -295,6 +386,9 @@ export function useRoleMap() {
     clearPositions,
     reparentGroup,
     updateEdgeStyle,
+    addConnection,
+    removeConnection,
+    updateConnectionStyle,
     addMap,
     deleteMap,
     exportData,
