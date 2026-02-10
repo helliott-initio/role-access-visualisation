@@ -23,8 +23,13 @@ export interface AlignmentResult {
 }
 
 export function getNodeBounds(node: Node): NodeBounds | null {
-  const w = node.measured?.width ?? node.width ?? 0;
-  const h = node.measured?.height ?? node.height ?? 0;
+  // Prefer explicit style dimensions (set on section nodes) over measured
+  // to avoid sub-pixel discrepancies that misalign guide lines with visual edges.
+  // Role nodes have no explicit style dimensions, so they correctly fall back to measured.
+  const styleW = typeof node.style?.width === 'number' ? node.style.width : null;
+  const styleH = typeof node.style?.height === 'number' ? node.style.height : null;
+  const w = styleW ?? node.measured?.width ?? node.width ?? 0;
+  const h = styleH ?? node.measured?.height ?? node.height ?? 0;
   if (!w || !h) return null;
 
   const left = node.position.x;
@@ -60,7 +65,6 @@ export function findAlignments(
 
   for (const node of allNodes) {
     if (node.id === draggingNode.id) continue;
-    if (node.id.startsWith('section-')) continue; // skip section containers
 
     const other = getNodeBounds(node);
     if (!other) continue;

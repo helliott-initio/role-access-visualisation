@@ -26,10 +26,11 @@ async function writeToHandle(handle: FileSystemFileHandle, maps: RoleMap[]): Pro
 export function useFileHandle(maps: RoleMap[]) {
   const fileHandleRef = useRef<FileSystemFileHandle | null>(null);
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const isInitialLoadRef = useRef(false);
   // Always keep the latest maps in a ref so the debounced write uses fresh data
   const mapsRef = useRef(maps);
   mapsRef.current = maps;
+  // Track the maps reference that was loaded from file — skip saving until maps diverges from it
+  const loadedMapsRef = useRef<RoleMap[] | null>(null);
 
   const [fileName, setFileName] = useState<string | null>(null);
   const [saveStatus, setSaveStatus] = useState<SaveStatus>('idle');
@@ -66,7 +67,6 @@ export function useFileHandle(maps: RoleMap[]) {
       if (!isValid || mapsArr.length === 0) return null;
 
       fileHandleRef.current = handle;
-      isInitialLoadRef.current = true;
       setFileName(handle.name);
       setLastFileName(handle.name);
       localStorage.setItem(LAST_FILE_KEY, handle.name);
@@ -96,6 +96,8 @@ export function useFileHandle(maps: RoleMap[]) {
       setSaveError(null);
 
       await writeToHandle(handle, currentMaps);
+      // Mark current maps as "already saved" so the effect doesn't re-save
+      loadedMapsRef.current = currentMaps;
       setSaveStatus('saved');
       return true;
     } catch (err: unknown) {
@@ -112,6 +114,7 @@ export function useFileHandle(maps: RoleMap[]) {
       clearTimeout(saveTimerRef.current);
     }
     fileHandleRef.current = null;
+    loadedMapsRef.current = null;
     setFileName(null);
     setLastFileName(null);
     localStorage.removeItem(LAST_FILE_KEY);
@@ -119,13 +122,19 @@ export function useFileHandle(maps: RoleMap[]) {
     setSaveError(null);
   }, []);
 
+  // Called from App.tsx after openFile returns maps and loadMaps applies them
+  // Marks those maps as "already saved" so the effect skips the first cycle
+  const markLoaded = useCallback((loadedMaps: RoleMap[]) => {
+    loadedMapsRef.current = loadedMaps;
+  }, []);
+
   // Debounced auto-save: mark unsaved immediately, write after 500ms of quiet
   useEffect(() => {
     if (!fileHandleRef.current) return;
 
-    // Skip the first cycle after openFile to avoid writing back what we just read
-    if (isInitialLoadRef.current) {
-      isInitialLoadRef.current = false;
+    // Skip if these maps came from the file we just loaded/saved (same reference)
+    if (loadedMapsRef.current !== null) {
+      loadedMapsRef.current = null;
       return;
     }
 
@@ -142,7 +151,6 @@ export function useFileHandle(maps: RoleMap[]) {
 
       setSaveStatus('saving');
       try {
-        // Use ref to get the latest maps, not the stale closure value
         await writeToHandle(handle, mapsRef.current);
         setSaveStatus('saved');
         setSaveError(null);
@@ -178,5 +186,6 @@ export function useFileHandle(maps: RoleMap[]) {
     openFile,
     newFile,
     closeFile,
+    markLoaded,
   };
 }
