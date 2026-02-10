@@ -154,19 +154,28 @@ export function useFileHandle(maps: RoleMap[]) {
   }, []);
 
   // Debounced auto-save: compare JSON content on every render to detect real changes.
-  // Reference comparison (maps === prev) proved unreliable for structural changes
-  // (deletes/creates), so we compare serialised content against lastSavedJsonRef instead.
   useEffect(() => {
-    if (!fileHandleRef.current) return;
+    // === DIAGNOSTIC: log on EVERY tick so we can verify the effect runs ===
+    const hasHandle = !!fileHandleRef.current;
+    const currentJson = hasHandle ? JSON.stringify(maps) : '';
+    const jsonMatch = hasHandle ? (currentJson === lastSavedJsonRef.current) : false;
+    console.log('[auto-save:tick]', {
+      hasHandle,
+      jsonMatch,
+      groups: maps[0]?.groups?.length,
+      sections: maps[0]?.sections?.length,
+      currentLen: currentJson.length,
+      savedLen: lastSavedJsonRef.current.length,
+    });
 
-    const currentJson = JSON.stringify(maps);
-    if (currentJson === lastSavedJsonRef.current) return;
+    if (!hasHandle) return;
+    if (jsonMatch) return;
 
     // Data actually changed — update lastSavedJsonRef immediately so that
     // re-renders caused by setSaveStatus don't re-trigger this branch.
     lastSavedJsonRef.current = currentJson;
 
-    console.log('[auto-save] change detected, scheduling write…',
+    console.log('[auto-save] CHANGE DETECTED, scheduling write…',
       { sections: maps[0]?.sections?.length, groups: maps[0]?.groups?.length });
     setSaveStatus('unsaved');
 
