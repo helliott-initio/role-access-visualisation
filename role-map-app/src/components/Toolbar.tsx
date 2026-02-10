@@ -26,6 +26,7 @@ interface ToolbarProps {
   saveStatus: SaveStatus;
   saveError: string | null;
   isFileSystemSupported: boolean;
+  onSaveNow: () => void;
 }
 
 function SaveStatusIndicator({ status, error }: { status: SaveStatus; error: string | null }) {
@@ -126,6 +127,7 @@ export function Toolbar({
   saveStatus,
   saveError,
   isFileSystemSupported,
+  onSaveNow,
 }: ToolbarProps) {
   const handleLoadFile = () => {
     const input = document.createElement('input');
@@ -181,6 +183,13 @@ export function Toolbar({
                 </svg>
                 <span className="hdr-file-name">{fileName}</span>
                 <SaveStatusIndicator status={saveStatus} error={saveError} />
+                <button className="hdr-file-save" onClick={onSaveNow} title="Save now (Ctrl+S)">
+                  <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+                    <path d="M2 1H8.5L11 3.5V10C11 10.5 10.5 11 10 11H2C1.5 11 1 10.5 1 10V2C1 1.5 1.5 1 2 1Z" stroke="currentColor" strokeWidth="1.1" strokeLinejoin="round"/>
+                    <path d="M3 1V4H8V1" stroke="currentColor" strokeWidth="1.1"/>
+                    <path d="M3 11V7H9V11" stroke="currentColor" strokeWidth="1.1"/>
+                  </svg>
+                </button>
                 <button className="hdr-file-close" onClick={onCloseFile} title="Close file">
                   <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
                     <path d="M2 2L8 8M8 2L2 8" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/>

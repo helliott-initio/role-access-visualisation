@@ -49,6 +49,7 @@ function App() {
     activateFile,
     newFile,
     closeFile,
+    saveNow,
   } = useFileHandle(state.maps);
 
   const [showEditModal, setShowEditModal] = useState(false);
@@ -258,6 +259,7 @@ function App() {
         saveStatus={saveStatus}
         saveError={saveError}
         isFileSystemSupported={isFileSystemSupported}
+        onSaveNow={saveNow}
       />
 
       {needsReopen && (

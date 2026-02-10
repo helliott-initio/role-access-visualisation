@@ -120,6 +120,24 @@ html, body, #root {
   white-space: nowrap;
 }
 
+.hdr-file-save {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: none;
+  border: none;
+  color: #5a7080;
+  cursor: pointer;
+  padding: 3px;
+  border-radius: 3px;
+  transition: all 0.15s;
+}
+
+.hdr-file-save:hover {
+  color: #7eb8da;
+  background: rgba(126,184,218,0.1);
+}
+
 .hdr-file-close {
   display: flex;
   align-items: center;

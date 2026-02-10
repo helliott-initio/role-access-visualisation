@@ -135,17 +135,47 @@ export function useFileHandle(maps: RoleMap[]) {
     setSaveError(null);
   }, []);
 
-  // Debounced auto-save: compare against last-saved snapshot to detect real changes
-  useEffect(() => {
-    if (!fileHandleRef.current) return;
+  // Manual save — always writes mapsRef.current to the file handle
+  const saveNow = useCallback(async () => {
+    const handle = fileHandleRef.current;
+    if (!handle) return;
+    setSaveStatus('saving');
+    try {
+      const latestMaps = mapsRef.current;
+      await writeToHandle(handle, latestMaps);
+      lastSavedJsonRef.current = JSON.stringify(latestMaps);
+      setSaveStatus('saved');
+      setSaveError(null);
+    } catch (err) {
+      console.error('Manual save failed:', err);
+      setSaveError(String(err));
+      setSaveStatus('error');
+    }
+  }, []);
 
-    // Compare current maps with what was last written/loaded
+  // Debounced auto-save on every render where maps changed
+  // Uses a ref to track the previous maps identity, avoiding dependency-array subtleties.
+  const prevMapsRef = useRef(maps);
+
+  useEffect(() => {
+    // Run after every render — compare maps identity ourselves
+    if (!fileHandleRef.current) {
+      prevMapsRef.current = maps;
+      return;
+    }
+
+    if (maps === prevMapsRef.current) return; // same reference = no change
+    prevMapsRef.current = maps;
+
+    // Compare JSON to skip writing back identical data (e.g. after file open)
     const currentJson = JSON.stringify(maps);
     if (currentJson === lastSavedJsonRef.current) {
       return;
     }
 
     // Data actually changed — mark unsaved and schedule write
+    console.log('[auto-save] change detected, scheduling write…',
+      { sections: maps[0]?.sections?.length, groups: maps[0]?.groups?.length });
     setSaveStatus('unsaved');
 
     if (saveTimerRef.current) {
@@ -158,14 +188,15 @@ export function useFileHandle(maps: RoleMap[]) {
 
       setSaveStatus('saving');
       try {
-        // Use mapsRef.current for the very latest data
         const latestMaps = mapsRef.current;
         await writeToHandle(handle, latestMaps);
         lastSavedJsonRef.current = JSON.stringify(latestMaps);
+        console.log('[auto-save] write complete',
+          { sections: latestMaps[0]?.sections?.length, groups: latestMaps[0]?.groups?.length });
         setSaveStatus('saved');
         setSaveError(null);
       } catch (err) {
-        console.error('Auto-save failed:', err);
+        console.error('[auto-save] write FAILED:', err);
         const message = err instanceof DOMException && err.name === 'NotAllowedError'
           ? 'Permission denied. Re-open the file to continue saving.'
           : `Save failed: ${String(err)}`;
@@ -181,7 +212,7 @@ export function useFileHandle(maps: RoleMap[]) {
         clearTimeout(saveTimerRef.current);
       }
     };
-  }, [maps]);
+  }); // <-- NO dependency array: runs after every render
 
   // Whether we need the user to re-open their file (had a file last session but no handle now)
   const needsReopen = isSupported && !fileName && !!lastFileName;
@@ -197,5 +228,6 @@ export function useFileHandle(maps: RoleMap[]) {
     activateFile,
     newFile,
     closeFile,
+    saveNow,
   };
 }
