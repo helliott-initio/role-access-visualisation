@@ -766,6 +766,8 @@ html, body, #root {
   min-width: 200px;
   min-height: 150px;
   padding-top: 36px;
+  position: relative;
+  z-index: 0;
 }
 
 .section-container-header {
