@@ -1245,26 +1245,45 @@ export function RoleMapCanvas({
         />
 
         <Panel position="top-left" className="section-legend">
-          <div className="legend-title">Sections</div>
+          <div className="legend-header">
+            <span className="legend-title">Sections</span>
+            <span className="legend-total">{sectionBadges.reduce((sum, s) => sum + s.groupCount, 0)} groups</span>
+          </div>
           <div className="legend-list">
-            {sectionBadges.map((section) => (
-              <button
-                key={section.id}
-                className={`legend-item ${section.collapsed ? 'collapsed' : ''} ${section.isDepartment ? 'legend-dept' : ''}`}
-                style={{
-                  borderLeftColor: section.color,
-                  backgroundColor: section.collapsed ? '#f0f0f0' : section.bgColor,
-                }}
-                onClick={() => onToggleSectionCollapse(section.id)}
-                title={section.collapsed ? 'Click to expand' : 'Click to collapse'}
-              >
-                <span className="legend-name" style={{ color: section.color }}>
-                  {section.name}
-                </span>
-                <span className="legend-count">{section.groupCount}</span>
-                <span className="legend-toggle">{section.collapsed ? '+' : '-'}</span>
-              </button>
-            ))}
+            {sectionBadges.map((section) => {
+              const typeLabel = section.type === 'department' ? 'Dept'
+                : section.type === 'secondary' ? 'Secondary'
+                : section.type === 'support' ? 'Support'
+                : 'Primary';
+              return (
+                <button
+                  key={section.id}
+                  className={`legend-item ${section.collapsed ? 'legend-collapsed' : ''} ${section.isDepartment ? 'legend-dept' : ''}`}
+                  style={{
+                    '--sec-color': section.color,
+                    '--sec-bg': section.bgColor,
+                  } as React.CSSProperties}
+                  onClick={() => onToggleSectionCollapse(section.id)}
+                  title={section.collapsed ? 'Click to expand' : 'Click to collapse'}
+                >
+                  {section.isDepartment ? (
+                    <>
+                      <span className="legend-dept-line" style={{ background: section.color }} />
+                      <span className="legend-dept-dot" style={{ borderColor: section.color }} />
+                    </>
+                  ) : (
+                    <span className="legend-swatch" style={{ background: section.color }} />
+                  )}
+                  <span className="legend-name">{section.name}</span>
+                  <span className="legend-badge" style={{
+                    background: section.isDepartment ? section.bgColor : section.color,
+                    color: section.isDepartment ? section.color : 'white',
+                  }}>{typeLabel}</span>
+                  <span className="legend-count">{section.groupCount}</span>
+                  <span className="legend-chevron">{section.collapsed ? '+' : '\u2212'}</span>
+                </button>
+              );
+            })}
           </div>
         </Panel>
       </ReactFlow>
