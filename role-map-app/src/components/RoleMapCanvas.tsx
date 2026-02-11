@@ -115,6 +115,8 @@ interface RoleMapCanvasProps {
   onAddDepartment: (parentSectionId: string) => void;
   onDuplicateGroup?: (groupId: string) => void;
   onDuplicateSection?: (sectionId: string) => void;
+  commandPaletteOpen?: boolean;
+  onCloseCommandPalette?: () => void;
 }
 
 export function RoleMapCanvas({
@@ -139,6 +141,8 @@ export function RoleMapCanvas({
   onAddDepartment,
   onDuplicateGroup,
   onDuplicateSection,
+  commandPaletteOpen,
+  onCloseCommandPalette,
 }: RoleMapCanvasProps) {
   const flowRef = useRef<HTMLDivElement>(null);
   const { setCenter } = useReactFlow();
@@ -148,9 +152,6 @@ export function RoleMapCanvas({
   const positionCacheRef = useRef<Map<string, { x: number; y: number }>>(new Map());
   // Track section positions for group-follows-section behavior
   const sectionPositionsRef = useRef<Map<string, { x: number; y: number }>>(new Map());
-
-  // Command palette (Ctrl+K)
-  const [showCommandPalette, setShowCommandPalette] = useState(false);
 
   const [contextMenu, setContextMenu] = useState<ContextMenuState>({
     show: false,
@@ -1197,7 +1198,6 @@ export function RoleMapCanvas({
   );
 
   // Ctrl+D / Cmd+D to duplicate selected node
-  // Ctrl+K / Cmd+K to open command palette
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if ((e.ctrlKey || e.metaKey) && e.key === 'd') {
@@ -1211,10 +1211,6 @@ export function RoleMapCanvas({
         } else {
           onDuplicateGroup?.(node.id);
         }
-      }
-      if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
-        e.preventDefault();
-        setShowCommandPalette((prev) => !prev);
       }
     };
     document.addEventListener('keydown', handler);
@@ -1474,7 +1470,7 @@ export function RoleMapCanvas({
         />
       )}
 
-      {showCommandPalette && (
+      {commandPaletteOpen && onCloseCommandPalette && (
         <CommandPalette
           groups={map.groups}
           sections={map.sections}
@@ -1500,7 +1496,7 @@ export function RoleMapCanvas({
               );
             }
           }}
-          onClose={() => setShowCommandPalette(false)}
+          onClose={onCloseCommandPalette}
         />
       )}
     </div>

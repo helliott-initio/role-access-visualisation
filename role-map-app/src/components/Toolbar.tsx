@@ -30,6 +30,7 @@ interface ToolbarProps {
   isFileSystemSupported: boolean;
   onLoadError?: (message: string) => void;
   onSaveNow: () => void;
+  onSearch?: () => void;
 }
 
 function SaveStatusIndicator({ status, error }: { status: SaveStatus; error: string | null }) {
@@ -133,6 +134,7 @@ export function Toolbar({
   isFileSystemSupported,
   onSaveNow,
   onLoadError,
+  onSearch,
 }: ToolbarProps) {
   const handleLoadFile = () => {
     const input = document.createElement('input');
@@ -224,8 +226,23 @@ export function Toolbar({
           </div>
         )}
 
-        {/* Right: view toggle + data actions */}
+        {/* Right: search + view toggle + data actions */}
         <div className="hdr-actions">
+          {onSearch && (
+            <button className="hdr-search-trigger" onClick={onSearch} title="Search (Ctrl+K)">
+              <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
+                <circle cx="6.5" cy="6.5" r="5" stroke="currentColor" strokeWidth="1.5" />
+                <line x1="10.5" y1="10.5" x2="14.5" y2="14.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+              </svg>
+              <span className="hdr-search-text">Search...</span>
+              <kbd className="hdr-search-kbd">
+                <span className="hdr-search-kbd-mod">{navigator.platform?.includes('Mac') ? '⌘' : 'Ctrl'}</span>K
+              </kbd>
+            </button>
+          )}
+
+          <span className="hdr-sep" />
+
           <label className="hdr-toggle">
             <input
               type="checkbox"

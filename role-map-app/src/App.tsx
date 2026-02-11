@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { ReactFlowProvider } from '@xyflow/react';
 
 import { useRoleMap } from './hooks/useRoleMap';
@@ -75,6 +75,19 @@ function App() {
   const [editingSection, setEditingSection] = useState<Section | null>(null);
   const [newGroupDefaults, setNewGroupDefaults] = useState<{ parentId?: string; sectionId?: string }>({});
   const [defaultParentSectionId, setDefaultParentSectionId] = useState<string | undefined>();
+  const [showCommandPalette, setShowCommandPalette] = useState(false);
+
+  // Ctrl+K / Cmd+K to toggle command palette
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
+        e.preventDefault();
+        setShowCommandPalette((prev) => !prev);
+      }
+    };
+    document.addEventListener('keydown', handler);
+    return () => document.removeEventListener('keydown', handler);
+  }, []);
 
   const selectedGroup = state.selectedNodeId
     ? activeMap.groups.find((g) => g.id === state.selectedNodeId) || null
@@ -289,6 +302,7 @@ function App() {
         isFileSystemSupported={isFileSystemSupported}
         onSaveNow={saveNow}
         onLoadError={(msg) => setAlertState({ title: 'Load Error', message: msg, variant: 'danger' })}
+        onSearch={() => setShowCommandPalette(true)}
       />
 
       {needsReopen && (
@@ -327,6 +341,8 @@ function App() {
             onAddDepartment={handleAddDepartment}
             onDuplicateGroup={duplicateGroup}
             onDuplicateSection={duplicateSection}
+            commandPaletteOpen={showCommandPalette}
+            onCloseCommandPalette={() => setShowCommandPalette(false)}
           />
         </ReactFlowProvider>
       </main>
