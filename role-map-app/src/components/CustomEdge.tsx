@@ -76,34 +76,7 @@ function getStraightPath(
 }
 
 // Gap between parallel edges (px)
-const PARALLEL_GAP = 14;
-
-// Compute perpendicular offset for parallel edges
-function getParallelOffset(
-  sourceX: number,
-  sourceY: number,
-  targetX: number,
-  targetY: number,
-  index: number,
-  total: number,
-): { dx: number; dy: number } {
-  if (total <= 1) return { dx: 0, dy: 0 };
-
-  // Offset from center: -1, 0, +1 for 3 edges, etc.
-  const offset = (index - (total - 1) / 2) * PARALLEL_GAP;
-
-  // Direction vector from source to target
-  const vx = targetX - sourceX;
-  const vy = targetY - sourceY;
-  const len = Math.sqrt(vx * vx + vy * vy);
-  if (len === 0) return { dx: 0, dy: 0 };
-
-  // Perpendicular unit vector (rotate 90 degrees)
-  const px = -vy / len;
-  const py = vx / len;
-
-  return { dx: px * offset, dy: py * offset };
-}
+const PARALLEL_GAP = 16;
 
 export function CustomEdge({
   id,
@@ -127,20 +100,18 @@ export function CustomEdge({
   const parallelIndex = edgeData?.parallelIndex ?? 0;
   const parallelTotal = edgeData?.parallelTotal ?? 1;
 
-  // Apply perpendicular offset for parallel edges
-  const pOffset = getParallelOffset(sourceX, sourceY, targetX, targetY, parallelIndex, parallelTotal);
-  const sx = sourceX + pOffset.dx;
-  const sy = sourceY + pOffset.dy;
-  const tx = targetX + pOffset.dx;
-  const ty = targetY + pOffset.dy;
+  // Parallel spread: offset from center for this edge in the parallel group
+  const parallelSpread = parallelTotal > 1
+    ? (parallelIndex - (parallelTotal - 1) / 2) * PARALLEL_GAP
+    : 0;
 
   // Use handle IDs to derive correct positions for path calculation
   const effectiveSourcePosition = getPositionFromHandleId(sourceHandleId, sourcePosition);
   const effectiveTargetPosition = getPositionFromHandleId(targetHandleId, targetPosition);
 
-  // Check if we can use a straight line (nodes are aligned)
+  // Check if we can use a straight line (nodes are aligned) — use original coords
   const useStraight = canUseStraightPath(
-    sx, sy, tx, ty,
+    sourceX, sourceY, targetX, targetY,
     effectiveSourcePosition, effectiveTargetPosition
   );
 
@@ -149,23 +120,45 @@ export function CustomEdge({
   let labelY: number;
 
   if (useStraight) {
-    // Use straight line for aligned nodes
+    // For straight paths: offset perpendicular to the line direction
+    const vx = targetX - sourceX;
+    const vy = targetY - sourceY;
+    const len = Math.sqrt(vx * vx + vy * vy) || 1;
+    // Perpendicular unit vector
+    const px = -vy / len;
+    const py = vx / len;
+    const sx = sourceX + px * parallelSpread;
+    const sy = sourceY + py * parallelSpread;
+    const tx = targetX + px * parallelSpread;
+    const ty = targetY + py * parallelSpread;
     [edgePath, labelX, labelY] = getStraightPath(sx, sy, tx, ty);
   } else {
-    // Use orthogonal path with minimal offset
-    const dx = Math.abs(tx - sx);
-    const dy = Math.abs(ty - sy);
-    const offset = Math.min(Math.max(Math.min(dx, dy) / 4, 10), 25);
+    // For orthogonal paths: use different routing offsets to spread the channels.
+    // Each parallel edge routes through a different "lane" by increasing the
+    // distance from the node where the path makes its first turn.
+    const dx = Math.abs(targetX - sourceX);
+    const dy = Math.abs(targetY - sourceY);
+    const baseOffset = Math.min(Math.max(Math.min(dx, dy) / 4, 10), 25);
+    const routeOffset = baseOffset + Math.abs(parallelSpread);
+
+    // Also shift endpoints slightly perpendicular so the paths don't
+    // start/end at the exact same point on the node handle.
+    const vx = targetX - sourceX;
+    const vy = targetY - sourceY;
+    const len = Math.sqrt(vx * vx + vy * vy) || 1;
+    const px = -vy / len;
+    const py = vx / len;
+    const handleShift = parallelSpread * 0.5;
 
     [edgePath, labelX, labelY] = getSmoothStepPath({
-      sourceX: sx,
-      sourceY: sy,
-      targetX: tx,
-      targetY: ty,
+      sourceX: sourceX + px * handleShift,
+      sourceY: sourceY + py * handleShift,
+      targetX: targetX + px * handleShift,
+      targetY: targetY + py * handleShift,
       sourcePosition: effectiveSourcePosition,
       targetPosition: effectiveTargetPosition,
       borderRadius: 8,
-      offset,
+      offset: routeOffset,
     });
   }
 
