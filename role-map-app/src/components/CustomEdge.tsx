@@ -11,8 +11,6 @@ interface CustomEdgeData {
   color?: string;
   animated?: boolean;
   dashed?: boolean;
-  parallelIndex?: number;
-  parallelTotal?: number;
 }
 
 // Map handle IDs to Position enum for correct path calculation
@@ -75,9 +73,6 @@ function getStraightPath(
   return [path, labelX, labelY];
 }
 
-// Gap between parallel edges (px)
-const PARALLEL_GAP = 16;
-
 export function CustomEdge({
   id,
   sourceX,
@@ -97,19 +92,12 @@ export function CustomEdge({
   const color = edgeData?.color || '#666';
   const dashed = edgeData?.dashed || false;
   const label = edgeData?.label;
-  const parallelIndex = edgeData?.parallelIndex ?? 0;
-  const parallelTotal = edgeData?.parallelTotal ?? 1;
-
-  // Parallel spread: offset from center for this edge in the parallel group
-  const parallelSpread = parallelTotal > 1
-    ? (parallelIndex - (parallelTotal - 1) / 2) * PARALLEL_GAP
-    : 0;
 
   // Use handle IDs to derive correct positions for path calculation
   const effectiveSourcePosition = getPositionFromHandleId(sourceHandleId, sourcePosition);
   const effectiveTargetPosition = getPositionFromHandleId(targetHandleId, targetPosition);
 
-  // Check if we can use a straight line (nodes are aligned) — use original coords
+  // Check if we can use a straight line (nodes are aligned)
   const useStraight = canUseStraightPath(
     sourceX, sourceY, targetX, targetY,
     effectiveSourcePosition, effectiveTargetPosition
@@ -120,50 +108,32 @@ export function CustomEdge({
   let labelY: number;
 
   if (useStraight) {
-    // For straight paths: offset perpendicular to the line direction
-    const vx = targetX - sourceX;
-    const vy = targetY - sourceY;
-    const len = Math.sqrt(vx * vx + vy * vy) || 1;
-    // Perpendicular unit vector
-    const px = -vy / len;
-    const py = vx / len;
-    const sx = sourceX + px * parallelSpread;
-    const sy = sourceY + py * parallelSpread;
-    const tx = targetX + px * parallelSpread;
-    const ty = targetY + py * parallelSpread;
-    [edgePath, labelX, labelY] = getStraightPath(sx, sy, tx, ty);
+    [edgePath, labelX, labelY] = getStraightPath(sourceX, sourceY, targetX, targetY);
   } else {
-    // For orthogonal paths: use different routing offsets to spread the channels.
-    // Each parallel edge routes through a different "lane" by increasing the
-    // distance from the node where the path makes its first turn.
-    const dx = Math.abs(targetX - sourceX);
-    const dy = Math.abs(targetY - sourceY);
-    const baseOffset = Math.min(Math.max(Math.min(dx, dy) / 4, 10), 25);
-    const routeOffset = baseOffset + Math.abs(parallelSpread);
-
-    // Also shift endpoints slightly perpendicular so the paths don't
-    // start/end at the exact same point on the node handle.
-    const vx = targetX - sourceX;
-    const vy = targetY - sourceY;
-    const len = Math.sqrt(vx * vx + vy * vy) || 1;
-    const px = -vy / len;
-    const py = vx / len;
-    const handleShift = parallelSpread * 0.5;
-
     [edgePath, labelX, labelY] = getSmoothStepPath({
-      sourceX: sourceX + px * handleShift,
-      sourceY: sourceY + py * handleShift,
-      targetX: targetX + px * handleShift,
-      targetY: targetY + py * handleShift,
+      sourceX,
+      sourceY,
+      targetX,
+      targetY,
       sourcePosition: effectiveSourcePosition,
       targetPosition: effectiveTargetPosition,
       borderRadius: 8,
-      offset: routeOffset,
     });
   }
 
+  const strokeWidth = selected ? 3 : 2;
+
   return (
     <>
+      {/* Background knockout stroke: erases overlapping edges underneath so
+          multiple edges on the same route don't accumulate thickness */}
+      <path
+        d={edgePath}
+        fill="none"
+        stroke="#f0f2f5"
+        strokeWidth={strokeWidth + 4}
+        strokeLinecap="round"
+      />
       <BaseEdge
         id={id}
         path={edgePath}
@@ -171,7 +141,7 @@ export function CustomEdge({
         markerStart={markerStart}
         style={{
           stroke: color,
-          strokeWidth: selected ? 3 : 2,
+          strokeWidth,
           strokeDasharray: dashed ? '5,5' : undefined,
         }}
       />

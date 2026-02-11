@@ -397,23 +397,6 @@ export function RoleMapCanvas({
       }
     });
 
-    // Post-process: detect parallel edges (same source-target pair) and add offset data
-    const pairCounts = new Map<string, number>();
-    const pairIndices = new Map<string, number>();
-    for (const edge of edges) {
-      const key = [edge.source, edge.target].sort().join('::');
-      pairCounts.set(key, (pairCounts.get(key) || 0) + 1);
-    }
-    for (const edge of edges) {
-      const key = [edge.source, edge.target].sort().join('::');
-      const total = pairCounts.get(key) || 1;
-      if (total > 1) {
-        const idx = pairIndices.get(key) || 0;
-        pairIndices.set(key, idx + 1);
-        edge.data = { ...edge.data, parallelIndex: idx, parallelTotal: total };
-      }
-    }
-
     return { builtNodes: nodes, builtEdges: edges };
   }, [map.sections, map.groups, map.rootGroupId, map.connections, showSecondaryRoles, getSectionForGroup]);
 
