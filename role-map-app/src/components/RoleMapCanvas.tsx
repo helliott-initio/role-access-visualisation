@@ -12,6 +12,7 @@ import {
   addEdge,
   ConnectionMode,
   useStore,
+  useReactFlow,
 } from '@xyflow/react';
 import type { Node, Edge, NodeChange, EdgeChange, Connection, OnReconnect } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
@@ -23,6 +24,7 @@ import RootNode from './RootNode';
 import SectionContainer from './SectionContainer';
 import CustomEdge from './CustomEdge';
 import { ContextMenu } from './ContextMenu';
+import { CommandPalette } from './CommandPalette';
 import { EdgeLabelDialog } from './EdgeLabelDialog';
 import { AlertDialog } from './AlertDialog';
 import { SectionSizeDialog } from './SectionSizeDialog';
@@ -139,12 +141,16 @@ export function RoleMapCanvas({
   onDuplicateSection,
 }: RoleMapCanvasProps) {
   const flowRef = useRef<HTMLDivElement>(null);
+  const { setCenter } = useReactFlow();
   const edgeReconnectSuccessful = useRef(true);
   const initialLayoutApplied = useRef(false);
   // Cache positions to survive collapse/expand cycles
   const positionCacheRef = useRef<Map<string, { x: number; y: number }>>(new Map());
   // Track section positions for group-follows-section behavior
   const sectionPositionsRef = useRef<Map<string, { x: number; y: number }>>(new Map());
+
+  // Command palette (Ctrl+K)
+  const [showCommandPalette, setShowCommandPalette] = useState(false);
 
   const [contextMenu, setContextMenu] = useState<ContextMenuState>({
     show: false,
@@ -1191,6 +1197,7 @@ export function RoleMapCanvas({
   );
 
   // Ctrl+D / Cmd+D to duplicate selected node
+  // Ctrl+K / Cmd+K to open command palette
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if ((e.ctrlKey || e.metaKey) && e.key === 'd') {
@@ -1204,6 +1211,10 @@ export function RoleMapCanvas({
         } else {
           onDuplicateGroup?.(node.id);
         }
+      }
+      if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
+        e.preventDefault();
+        setShowCommandPalette((prev) => !prev);
       }
     };
     document.addEventListener('keydown', handler);
@@ -1460,6 +1471,36 @@ export function RoleMapCanvas({
           message={alertDialog.message}
           variant={alertDialog.variant}
           onClose={() => setAlertDialog(null)}
+        />
+      )}
+
+      {showCommandPalette && (
+        <CommandPalette
+          groups={map.groups}
+          sections={map.sections}
+          onSelect={(nodeId, position) => {
+            // Select the node in the data model
+            if (nodeId.startsWith('section-')) {
+              onNodeSelect(null);
+            } else {
+              onNodeSelect(nodeId);
+            }
+            // Visually select in React Flow
+            setNodes((nds) =>
+              nds.map((n) => ({ ...n, selected: n.id === nodeId }))
+            );
+            // Pan viewport to the node
+            if (position) {
+              const nodeWidth = nodeId.startsWith('section-') ? 250 : 200;
+              const nodeHeight = nodeId.startsWith('section-') ? 200 : 60;
+              setCenter(
+                position.x + nodeWidth / 2,
+                position.y + nodeHeight / 2,
+                { zoom: 1, duration: 400 }
+              );
+            }
+          }}
+          onClose={() => setShowCommandPalette(false)}
         />
       )}
     </div>
