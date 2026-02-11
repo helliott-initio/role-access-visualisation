@@ -28,6 +28,7 @@ interface ToolbarProps {
   saveStatus: SaveStatus;
   saveError: string | null;
   isFileSystemSupported: boolean;
+  onLoadError?: (message: string) => void;
   onSaveNow: () => void;
 }
 
@@ -131,6 +132,7 @@ export function Toolbar({
   saveError,
   isFileSystemSupported,
   onSaveNow,
+  onLoadError,
 }: ToolbarProps) {
   const handleLoadFile = () => {
     const input = document.createElement('input');
@@ -144,7 +146,7 @@ export function Toolbar({
           const json = event.target?.result as string;
           const success = onLoadData(json);
           if (!success) {
-            alert('Invalid file format. Please select a valid role map JSON file.');
+            onLoadError?.('Invalid file format. Please select a valid role map JSON file.');
           }
         };
         reader.readAsText(file);

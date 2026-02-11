@@ -1246,6 +1246,38 @@ html, body, #root {
   cursor: not-allowed;
 }
 
+/* Section size dialog — two-column width x height */
+.size-dialog-fields {
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+  margin-bottom: 18px;
+}
+
+.size-dialog-field {
+  flex: 1;
+}
+
+.size-dialog-field .edge-label-input {
+  margin-bottom: 0;
+}
+
+.size-dialog-label {
+  display: block;
+  font-size: 0.72rem;
+  font-weight: 500;
+  color: #888;
+  margin-bottom: 4px;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+.size-dialog-x {
+  color: #aaa;
+  font-size: 1.1rem;
+  padding-bottom: 6px;
+}
+
 /* ================================================================
    COMBOBOX
    ================================================================ */

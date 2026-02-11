@@ -24,6 +24,8 @@ import SectionContainer from './SectionContainer';
 import CustomEdge from './CustomEdge';
 import { ContextMenu } from './ContextMenu';
 import { EdgeLabelDialog } from './EdgeLabelDialog';
+import { AlertDialog } from './AlertDialog';
+import { SectionSizeDialog } from './SectionSizeDialog';
 import { getLayoutedElements } from '../utils/layout';
 import type { RoleMap, RoleGroup, Section, MapConnection } from '../types';
 import { findAlignments, type GuideLine } from '../utils/snapAlignment';
@@ -109,6 +111,8 @@ interface RoleMapCanvasProps {
   onEditSection: (sectionId: string) => void;
   onDeleteSection: (sectionId: string) => void;
   onAddDepartment: (parentSectionId: string) => void;
+  onDuplicateGroup?: (groupId: string) => void;
+  onDuplicateSection?: (sectionId: string) => void;
 }
 
 export function RoleMapCanvas({
@@ -131,6 +135,8 @@ export function RoleMapCanvas({
   onEditSection,
   onDeleteSection,
   onAddDepartment,
+  onDuplicateGroup,
+  onDuplicateSection,
 }: RoleMapCanvasProps) {
   const flowRef = useRef<HTMLDivElement>(null);
   const edgeReconnectSuccessful = useRef(true);
@@ -152,6 +158,20 @@ export function RoleMapCanvas({
   const [labelDialog, setLabelDialog] = useState<{
     edgeId: string;
     currentLabel?: string;
+  } | null>(null);
+
+  // Section size dialog state
+  const [sizeDialog, setSizeDialog] = useState<{
+    sectionId: string;
+    width: number;
+    height: number;
+  } | null>(null);
+
+  // Alert dialog state
+  const [alertDialog, setAlertDialog] = useState<{
+    title: string;
+    message: string;
+    variant?: 'danger' | 'default';
   } | null>(null);
 
   // Track when a connection is being dragged for visual feedback
@@ -922,21 +942,19 @@ export function RoleMapCanvas({
     }
   }, [nodes, map.sections, onSectionPositionChange, setNodes]);
 
-  // Set exact section dimensions via prompt
+  // Open the set-size dialog for a section
   const handleSetSize = useCallback((sectionId: string) => {
     const currentSection = map.sections.find(s => s.id === sectionId);
     if (!currentSection) return;
-
     const currentW = currentSection.size?.width || 250;
     const currentH = currentSection.size?.height || 400;
-    const input = prompt(`Enter size as width x height:`, `${currentW} x ${currentH}`);
-    if (!input) return;
+    setSizeDialog({ sectionId, width: currentW, height: currentH });
+  }, [map.sections]);
 
-    const match = input.match(/(\d+)\s*[x×,]\s*(\d+)/);
-    if (!match) return;
-
-    const newW = Math.max(150, parseInt(match[1], 10));
-    const newH = Math.max(100, parseInt(match[2], 10));
+  // Apply section size from the dialog
+  const applySetSize = useCallback((sectionId: string, newW: number, newH: number) => {
+    const currentSection = map.sections.find(s => s.id === sectionId);
+    if (!currentSection) return;
 
     onSectionPositionChange(
       sectionId,
@@ -1172,6 +1190,26 @@ export function RoleMapCanvas({
     [setEdges, onReparent, onAddConnection, wouldCreateCycle, map.groups, map.sections]
   );
 
+  // Ctrl+D / Cmd+D to duplicate selected node
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === 'd') {
+        e.preventDefault();
+        const selected = nodes.filter((n) => n.selected);
+        if (selected.length !== 1) return;
+        const node = selected[0];
+        if (node.id.startsWith('section-')) {
+          const sectionId = node.id.replace('section-', '');
+          onDuplicateSection?.(sectionId);
+        } else {
+          onDuplicateGroup?.(node.id);
+        }
+      }
+    };
+    document.addEventListener('keydown', handler);
+    return () => document.removeEventListener('keydown', handler);
+  }, [nodes, onDuplicateGroup, onDuplicateSection]);
+
   // Section badges for the legend
   const sectionBadges = useMemo(() => {
     const all = map.sections
@@ -1331,6 +1369,13 @@ export function RoleMapCanvas({
               ? () => onAddDepartment(contextMenu.nodeId!)
               : undefined
           }
+          onDuplicate={() => {
+            if (contextMenu.nodeType === 'section' && contextMenu.nodeId) {
+              onDuplicateSection?.(contextMenu.nodeId);
+            } else if (contextMenu.nodeType === 'role' && contextMenu.nodeId) {
+              onDuplicateGroup?.(contextMenu.nodeId);
+            }
+          }}
           hasLabel={!!contextMenu.edgeData?.label}
           isDashed={contextMenu.edgeData?.dashed}
           isAnimated={contextMenu.edgeData?.animated}
@@ -1396,11 +1441,32 @@ export function RoleMapCanvas({
           onCancel={() => setLabelDialog(null)}
         />
       )}
+
+      {sizeDialog && (
+        <SectionSizeDialog
+          currentWidth={sizeDialog.width}
+          currentHeight={sizeDialog.height}
+          onSave={(w, h) => {
+            applySetSize(sizeDialog.sectionId, w, h);
+            setSizeDialog(null);
+          }}
+          onCancel={() => setSizeDialog(null)}
+        />
+      )}
+
+      {alertDialog && (
+        <AlertDialog
+          title={alertDialog.title}
+          message={alertDialog.message}
+          variant={alertDialog.variant}
+          onClose={() => setAlertDialog(null)}
+        />
+      )}
     </div>
   );
 }
 
-export async function exportToPDF(elementId: string, filename: string) {
+export async function exportToPDF(elementId: string, filename: string, onError?: (message: string) => void) {
   const element = document.getElementById(elementId);
   if (!element) return;
 
@@ -1427,6 +1493,8 @@ export async function exportToPDF(elementId: string, filename: string) {
     pdf.save(`${filename}.pdf`);
   } catch (error) {
     console.error('Error exporting PDF:', error);
-    alert('Error exporting PDF. Please try again.');
+    if (onError) {
+      onError('Error exporting PDF. Please try again.');
+    }
   }
 }

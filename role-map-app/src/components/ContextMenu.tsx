@@ -17,6 +17,7 @@ interface ContextMenuProps {
   onToggleDashed?: () => void;
   onToggleAnimated?: () => void;
   onToggleArrow?: () => void;
+  onDuplicate?: () => void;
   onMatchWidth?: () => void;
   onMatchHeight?: () => void;
   onSetSize?: () => void;
@@ -37,6 +38,7 @@ export function ContextMenu({
   onAddGroup,
   onAddSection,
   onAddDepartment,
+  onDuplicate,
   onAddLabel,
   onRemoveLabel,
   onReverseDirection,
@@ -96,6 +98,12 @@ export function ContextMenu({
               <span className="context-menu-icon">+</span>
               Add Child Group
             </button>
+            {onDuplicate && (
+              <button className="context-menu-item" onClick={() => handleClick(onDuplicate)}>
+                <span className="context-menu-icon">⧉</span>
+                Duplicate Group
+              </button>
+            )}
             <div className="context-menu-divider" />
             <button
               className="context-menu-item danger"
@@ -120,6 +128,12 @@ export function ContextMenu({
               <button className="context-menu-item" onClick={() => handleClick(onAddDepartment)}>
                 <span className="context-menu-icon">▢</span>
                 Add Department
+              </button>
+            )}
+            {onDuplicate && (
+              <button className="context-menu-item" onClick={() => handleClick(onDuplicate)}>
+                <span className="context-menu-icon">⧉</span>
+                Duplicate Section
               </button>
             )}
             <div className="context-menu-divider" />

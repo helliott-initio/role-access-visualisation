@@ -93,6 +93,144 @@ export function useRoleMap() {
     }));
   }, []);
 
+  const duplicateGroup = useCallback((groupId: string): string | null => {
+    let newId: string | null = null;
+    setState((prev) => {
+      const map = prev.maps.find((m) => m.id === prev.activeMapId);
+      if (!map) return prev;
+      const source = map.groups.find((g) => g.id === groupId);
+      if (!source) return prev;
+
+      newId = `group-${crypto.randomUUID().slice(0, 8)}`;
+      const newGroup: RoleGroup = {
+        ...source,
+        id: newId,
+        parentId: null,
+        edgeLabel: undefined,
+        edgeStyle: undefined,
+        sourceHandle: undefined,
+        targetHandle: undefined,
+        position: source.position
+          ? { x: source.position.x + 40, y: source.position.y + 40 }
+          : undefined,
+      };
+
+      return {
+        ...prev,
+        selectedNodeId: newId,
+        maps: prev.maps.map((m) =>
+          m.id !== prev.activeMapId ? m : { ...m, groups: [...m.groups, newGroup] }
+        ),
+      };
+    });
+    return newId;
+  }, []);
+
+  const duplicateSection = useCallback((sectionId: string): string | null => {
+    let newSectionId: string | null = null;
+    setState((prev) => {
+      const map = prev.maps.find((m) => m.id === prev.activeMapId);
+      if (!map) return prev;
+      const sourceSection = map.sections.find((s) => s.id === sectionId);
+      if (!sourceSection) return prev;
+
+      newSectionId = `section-dup-${crypto.randomUUID().slice(0, 8)}`;
+
+      // Duplicate the section itself
+      const newSection: Section = {
+        ...sourceSection,
+        id: newSectionId,
+        name: sourceSection.name + ' (Copy)',
+        collapsed: false,
+        position: sourceSection.position
+          ? { x: sourceSection.position.x + 50, y: sourceSection.position.y + 50 }
+          : undefined,
+      };
+
+      // Collect child departments
+      const childDepts = map.sections.filter((s) => s.parentSectionId === sectionId);
+
+      // Build old→new section ID map
+      const sectionIdMap = new Map<string, string>();
+      sectionIdMap.set(sectionId, newSectionId);
+      const newDepts: Section[] = childDepts.map((dept) => {
+        const newDeptId = `section-dup-${crypto.randomUUID().slice(0, 8)}`;
+        sectionIdMap.set(dept.id, newDeptId);
+        return {
+          ...dept,
+          id: newDeptId,
+          name: dept.name + ' (Copy)',
+          collapsed: false,
+          parentSectionId: newSectionId,
+          position: dept.position
+            ? { x: dept.position.x, y: dept.position.y }
+            : undefined,
+        };
+      });
+
+      // Collect all section IDs to duplicate groups from (parent + departments)
+      const sourceSectionIds = new Set([sectionId, ...childDepts.map((d) => d.id)]);
+
+      // Duplicate groups, building old→new group ID map
+      const groupIdMap = new Map<string, string>();
+      const sourceGroups = map.groups.filter((g) => sourceSectionIds.has(g.sectionId));
+      sourceGroups.forEach((g) => {
+        groupIdMap.set(g.id, `group-${crypto.randomUUID().slice(0, 8)}`);
+      });
+
+      const newGroups: RoleGroup[] = sourceGroups.map((g) => {
+        const newGroupId = groupIdMap.get(g.id)!;
+        const newSectionForGroup = sectionIdMap.get(g.sectionId) || g.sectionId;
+
+        // Remap parentId if it's within the duplicated set, otherwise clear
+        let newParentId: string | null = null;
+        let edgeLabel = undefined as string | undefined;
+        let edgeStyle = undefined as RoleGroup['edgeStyle'];
+        let sourceHandle = undefined as string | undefined;
+        let targetHandle = undefined as string | undefined;
+
+        if (g.parentId && groupIdMap.has(g.parentId)) {
+          newParentId = groupIdMap.get(g.parentId)!;
+          edgeLabel = g.edgeLabel;
+          edgeStyle = g.edgeStyle;
+          sourceHandle = g.sourceHandle;
+          targetHandle = g.targetHandle;
+        }
+
+        return {
+          ...g,
+          id: newGroupId,
+          sectionId: newSectionForGroup,
+          parentId: newParentId,
+          edgeLabel,
+          edgeStyle,
+          sourceHandle,
+          targetHandle,
+          position: g.position
+            ? { x: g.position.x, y: g.position.y }
+            : undefined,
+        };
+      });
+
+      // Insert new sections before secondary-roles
+      const newSections = [...map.sections];
+      const secondaryIndex = newSections.findIndex((s) => s.id === 'secondary-roles');
+      const insertAt = secondaryIndex >= 0 ? secondaryIndex : newSections.length;
+      newSections.splice(insertAt, 0, newSection, ...newDepts);
+
+      return {
+        ...prev,
+        selectedNodeId: `section-${newSectionId}`,
+        maps: prev.maps.map((m) =>
+          m.id !== prev.activeMapId
+            ? m
+            : { ...m, sections: newSections, groups: [...m.groups, ...newGroups] }
+        ),
+      };
+    });
+    return newSectionId;
+  }, []);
+
   const updateSection = useCallback((updatedSection: Section) => {
     setState((prev) => ({
       ...prev,
@@ -410,6 +548,8 @@ export function useRoleMap() {
     setSelectedNode,
     updateGroup,
     deleteGroup,
+    duplicateGroup,
+    duplicateSection,
     updateSection,
     deleteSection,
     toggleSectionCollapse,

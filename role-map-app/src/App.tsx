@@ -9,6 +9,7 @@ import { EditModal } from './components/EditModal';
 import { SectionModal } from './components/SectionModal';
 import { NewMapModal } from './components/NewMapModal';
 import { ConfirmDialog } from './components/ConfirmDialog';
+import { AlertDialog } from './components/AlertDialog';
 import type { RoleGroup, Section, RoleMap } from './types';
 
 interface ConfirmState {
@@ -30,6 +31,8 @@ function App() {
     setSelectedNode,
     updateGroup,
     deleteGroup,
+    duplicateGroup,
+    duplicateSection,
     updateSection,
     deleteSection,
     toggleSectionCollapse,
@@ -63,6 +66,7 @@ function App() {
   } = useFileHandle(state.maps);
 
   const [confirmState, setConfirmState] = useState<ConfirmState | null>(null);
+  const [alertState, setAlertState] = useState<{ title: string; message: string; variant?: 'danger' | 'default' } | null>(null);
   const [showEditModal, setShowEditModal] = useState(false);
   const [showSectionModal, setShowSectionModal] = useState(false);
   const [showNewMapModal, setShowNewMapModal] = useState(false);
@@ -208,7 +212,9 @@ function App() {
   );
 
   const handleExportPDF = useCallback(() => {
-    exportToPDF('role-map-canvas', `${activeMap.name}-role-map`);
+    exportToPDF('role-map-canvas', `${activeMap.name}-role-map`, (msg) => {
+      setAlertState({ title: 'Export Error', message: msg, variant: 'danger' });
+    });
   }, [activeMap.name]);
 
   const handleSaveData = useCallback(() => {
@@ -282,6 +288,7 @@ function App() {
         saveError={saveError}
         isFileSystemSupported={isFileSystemSupported}
         onSaveNow={saveNow}
+        onLoadError={(msg) => setAlertState({ title: 'Load Error', message: msg, variant: 'danger' })}
       />
 
       {needsReopen && (
@@ -318,6 +325,8 @@ function App() {
             onEditSection={handleEditSection}
             onDeleteSection={handleDeleteSectionDirect}
             onAddDepartment={handleAddDepartment}
+            onDuplicateGroup={duplicateGroup}
+            onDuplicateSection={duplicateSection}
           />
         </ReactFlowProvider>
       </main>
@@ -372,6 +381,15 @@ function App() {
           variant={confirmState.variant}
           onConfirm={confirmState.onConfirm}
           onCancel={() => setConfirmState(null)}
+        />
+      )}
+
+      {alertState && (
+        <AlertDialog
+          title={alertState.title}
+          message={alertState.message}
+          variant={alertState.variant}
+          onClose={() => setAlertState(null)}
         />
       )}
     </div>
