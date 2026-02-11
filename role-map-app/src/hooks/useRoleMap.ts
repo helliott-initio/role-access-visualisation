@@ -136,7 +136,7 @@ export function useRoleMap() {
 
       newSectionId = `section-dup-${crypto.randomUUID().slice(0, 8)}`;
 
-      // Duplicate the section itself
+      // Duplicate the section itself (explicitly copy size)
       const newSection: Section = {
         ...sourceSection,
         id: newSectionId,
@@ -144,6 +144,9 @@ export function useRoleMap() {
         collapsed: false,
         position: sourceSection.position
           ? { x: sourceSection.position.x + 50, y: sourceSection.position.y + 50 }
+          : undefined,
+        size: sourceSection.size
+          ? { width: sourceSection.size.width, height: sourceSection.size.height }
           : undefined,
       };
 
@@ -164,6 +167,9 @@ export function useRoleMap() {
           parentSectionId: newSectionId,
           position: dept.position
             ? { x: dept.position.x, y: dept.position.y }
+            : undefined,
+          size: dept.size
+            ? { width: dept.size.width, height: dept.size.height }
             : undefined,
         };
       });

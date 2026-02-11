@@ -167,6 +167,9 @@ export function RoleMapCanvas({
     currentLabel?: string;
   } | null>(null);
 
+  // Copied section size for copy/paste
+  const [copiedSize, setCopiedSize] = useState<{ width: number; height: number } | null>(null);
+
   // Section size dialog state
   const [sizeDialog, setSizeDialog] = useState<{
     sectionId: string;
@@ -992,6 +995,22 @@ export function RoleMapCanvas({
     ));
   }, [map.sections, onSectionPositionChange, setNodes]);
 
+  // Copy section size to internal clipboard
+  const handleCopySize = useCallback((sectionId: string) => {
+    const section = map.sections.find(s => s.id === sectionId);
+    if (!section) return;
+    setCopiedSize({
+      width: section.size?.width || 250,
+      height: section.size?.height || 400,
+    });
+  }, [map.sections]);
+
+  // Paste copied size onto a section
+  const handlePasteSize = useCallback((sectionId: string) => {
+    if (!copiedSize) return;
+    applySetSize(sectionId, copiedSize.width, copiedSize.height);
+  }, [copiedSize, applySetSize]);
+
   // Handle edge reconnection (drag to reparent)
   const onReconnectStart = useCallback(() => {
     edgeReconnectSuccessful.current = false;
@@ -1452,6 +1471,17 @@ export function RoleMapCanvas({
               handleSetSize(contextMenu.nodeId);
             }
           }}
+          onCopySize={() => {
+            if (contextMenu.nodeId && contextMenu.nodeType === 'section') {
+              handleCopySize(contextMenu.nodeId);
+            }
+          }}
+          onPasteSize={() => {
+            if (contextMenu.nodeId && contextMenu.nodeType === 'section') {
+              handlePasteSize(contextMenu.nodeId);
+            }
+          }}
+          hasCopiedSize={!!copiedSize}
         />
       )}
 

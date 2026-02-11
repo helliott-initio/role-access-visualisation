@@ -18,6 +18,9 @@ interface ContextMenuProps {
   onToggleAnimated?: () => void;
   onToggleArrow?: () => void;
   onDuplicate?: () => void;
+  onCopySize?: () => void;
+  onPasteSize?: () => void;
+  hasCopiedSize?: boolean;
   onMatchWidth?: () => void;
   onMatchHeight?: () => void;
   onSetSize?: () => void;
@@ -45,6 +48,9 @@ export function ContextMenu({
   onToggleDashed,
   onToggleAnimated,
   onToggleArrow,
+  onCopySize,
+  onPasteSize,
+  hasCopiedSize,
   onMatchWidth,
   onMatchHeight,
   onSetSize,
@@ -153,6 +159,18 @@ export function ContextMenu({
               <button className="context-menu-item" onClick={() => handleClick(onSetSize)}>
                 <span className="context-menu-icon">⬒</span>
                 Set Size...
+              </button>
+            )}
+            {onCopySize && (
+              <button className="context-menu-item" onClick={() => handleClick(onCopySize)}>
+                <span className="context-menu-icon">📋</span>
+                Copy Size
+              </button>
+            )}
+            {onPasteSize && hasCopiedSize && (
+              <button className="context-menu-item" onClick={() => handleClick(onPasteSize)}>
+                <span className="context-menu-icon">📌</span>
+                Paste Size
               </button>
             )}
             <div className="context-menu-divider" />
