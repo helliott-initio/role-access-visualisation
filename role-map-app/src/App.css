@@ -724,32 +724,51 @@ html, body, #root {
   border-radius: 8px;
   padding: 12px;
   box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-  max-width: 200px;
+  max-width: 220px;
+  display: flex;
+  flex-direction: column;
 }
 
 .legend-title {
   font-weight: 600;
-  font-size: 0.8rem;
-  color: #666;
+  font-size: 0.75rem;
+  color: #888;
   margin-bottom: 8px;
   text-transform: uppercase;
-  letter-spacing: 0.5px;
+  letter-spacing: 0.6px;
+  flex-shrink: 0;
+}
+
+.legend-list {
+  overflow-y: auto;
+  max-height: calc(100vh - 200px);
+  scrollbar-width: thin;
+  scrollbar-color: rgba(0,0,0,0.12) transparent;
+}
+
+.legend-list::-webkit-scrollbar {
+  width: 4px;
+}
+
+.legend-list::-webkit-scrollbar-thumb {
+  background: rgba(0,0,0,0.12);
+  border-radius: 2px;
 }
 
 .legend-item {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
   width: 100%;
-  padding: 8px 10px;
-  margin-bottom: 4px;
+  padding: 7px 10px;
+  margin-bottom: 2px;
   border: none;
   border-left: 4px solid;
   border-radius: 4px;
   cursor: pointer;
   text-align: left;
-  font-size: 0.8rem;
-  transition: all 0.2s;
+  font-size: 0.78rem;
+  transition: all 0.15s;
 }
 
 .legend-item:hover {
@@ -757,24 +776,44 @@ html, body, #root {
 }
 
 .legend-item.collapsed {
-  opacity: 0.6;
+  opacity: 0.5;
+}
+
+/* Department items — indented under parent section */
+.legend-item.legend-dept {
+  margin-left: 12px;
+  width: calc(100% - 12px);
+  border-left-width: 3px;
+  padding: 5px 8px;
+  font-size: 0.72rem;
 }
 
 .legend-name {
   flex: 1;
   font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.legend-dept .legend-name {
+  font-weight: 400;
 }
 
 .legend-count {
-  background: rgba(0,0,0,0.1);
-  padding: 2px 6px;
+  background: rgba(0,0,0,0.08);
+  padding: 1px 6px;
   border-radius: 10px;
-  font-size: 0.7rem;
+  font-size: 0.68rem;
+  font-weight: 500;
+  flex-shrink: 0;
 }
 
 .legend-toggle {
   font-weight: bold;
-  opacity: 0.6;
+  opacity: 0.5;
+  flex-shrink: 0;
+  font-size: 0.75rem;
 }
 
 /* ================================================================

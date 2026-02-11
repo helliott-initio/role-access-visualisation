@@ -309,7 +309,7 @@ function SectionContainer({ id, data, selected }: NodeProps) {
         type="source"
         position={Position.Bottom}
         id="header-bottom"
-        style={{ ...baseHandleStyle, top: headerHeight }}
+        style={{ ...baseHandleStyle, top: headerHeight, bottom: 'auto' }}
         isConnectableStart={true}
         isConnectableEnd={true}
       />

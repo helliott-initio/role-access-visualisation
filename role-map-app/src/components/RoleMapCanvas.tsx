@@ -487,10 +487,12 @@ export function RoleMapCanvas({
                 }
               });
 
-              // Move all groups in this section and its child departments
+              // Move unselected groups in this section and its child departments.
+              // Selected groups are already moved by React Flow's multi-drag.
               setNodes(currentNodes =>
                 currentNodes.map(node => {
                   if (node.id.startsWith('section-')) return node;
+                  if (node.selected) return node;
                   const nodeData = node.data as { sectionId?: string };
                   if (nodeData.sectionId && sectionIds.has(nodeData.sectionId)) {
                     const newPos = {
@@ -1017,6 +1019,15 @@ export function RoleMapCanvas({
   // Smart alignment snapping during node drag
   const handleNodeDrag = useCallback(
     (_: React.MouseEvent, dragNode: Node) => {
+      // Skip snap alignment during multi-select drag — setNodes would
+      // overwrite other selected nodes' positions, breaking native multi-drag.
+      const selectedCount = nodes.filter(n => n.selected).length;
+      if (selectedCount > 1) {
+        snappedPositionRef.current.delete(dragNode.id);
+        setGuideLines([]);
+        return;
+      }
+
       const isSection = dragNode.id.startsWith('section-');
       const isDepartment = isSection && !!dragNode.parentId;
 
@@ -1163,12 +1174,21 @@ export function RoleMapCanvas({
 
   // Section badges for the legend
   const sectionBadges = useMemo(() => {
-    return map.sections
+    const all = map.sections
       .filter((s) => s.id !== 'secondary-roles' || showSecondaryRoles)
       .map((section) => ({
         ...section,
         groupCount: map.groups.filter((g) => g.sectionId === section.id).length,
+        isDepartment: !!section.parentSectionId,
       }));
+    // Sort: parent sections first, then their departments grouped underneath
+    const parents = all.filter(s => !s.isDepartment);
+    const result: typeof all = [];
+    for (const parent of parents) {
+      result.push(parent);
+      result.push(...all.filter(s => s.parentSectionId === parent.id));
+    }
+    return result;
   }, [map.sections, map.groups, showSecondaryRoles]);
 
   return (
@@ -1226,24 +1246,26 @@ export function RoleMapCanvas({
 
         <Panel position="top-left" className="section-legend">
           <div className="legend-title">Sections</div>
-          {sectionBadges.map((section) => (
-            <button
-              key={section.id}
-              className={`legend-item ${section.collapsed ? 'collapsed' : ''}`}
-              style={{
-                borderLeftColor: section.color,
-                backgroundColor: section.collapsed ? '#f0f0f0' : section.bgColor,
-              }}
-              onClick={() => onToggleSectionCollapse(section.id)}
-              title={section.collapsed ? 'Click to expand' : 'Click to collapse'}
-            >
-              <span className="legend-name" style={{ color: section.color }}>
-                {section.name}
-              </span>
-              <span className="legend-count">{section.groupCount}</span>
-              <span className="legend-toggle">{section.collapsed ? '+' : '-'}</span>
-            </button>
-          ))}
+          <div className="legend-list">
+            {sectionBadges.map((section) => (
+              <button
+                key={section.id}
+                className={`legend-item ${section.collapsed ? 'collapsed' : ''} ${section.isDepartment ? 'legend-dept' : ''}`}
+                style={{
+                  borderLeftColor: section.color,
+                  backgroundColor: section.collapsed ? '#f0f0f0' : section.bgColor,
+                }}
+                onClick={() => onToggleSectionCollapse(section.id)}
+                title={section.collapsed ? 'Click to expand' : 'Click to collapse'}
+              >
+                <span className="legend-name" style={{ color: section.color }}>
+                  {section.name}
+                </span>
+                <span className="legend-count">{section.groupCount}</span>
+                <span className="legend-toggle">{section.collapsed ? '+' : '-'}</span>
+              </button>
+            ))}
+          </div>
         </Panel>
       </ReactFlow>
 
