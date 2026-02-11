@@ -304,6 +304,15 @@ function SectionContainer({ id, data, selected }: NodeProps) {
         isConnectableStart={true}
         isConnectableEnd={true}
       />
+      {/* Handle at the bottom edge of the section header — for "member of" connections */}
+      <Handle
+        type="source"
+        position={Position.Bottom}
+        id="header-bottom"
+        style={{ ...baseHandleStyle, top: headerHeight }}
+        isConnectableStart={true}
+        isConnectableEnd={true}
+      />
     </>
   );
 }
