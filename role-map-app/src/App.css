@@ -1078,6 +1078,51 @@ html, body, #root {
 }
 
 /* ================================================================
+   EDGE LABEL DIALOG
+   ================================================================ */
+
+.edge-label-dialog {
+  background: white;
+  border-radius: 14px;
+  width: 90%;
+  max-width: 340px;
+  padding: 28px 24px 20px;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+  text-align: center;
+  animation: confirmIn 0.15s ease-out;
+}
+
+.edge-label-input {
+  width: 100%;
+  padding: 10px 14px;
+  border: 1.5px solid #d0d7de;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  color: #1a1a1a;
+  background: #fafbfc;
+  outline: none;
+  transition: border-color 0.15s, box-shadow 0.15s;
+  margin-bottom: 18px;
+  box-sizing: border-box;
+}
+
+.edge-label-input:focus {
+  border-color: #2d3e50;
+  box-shadow: 0 0 0 3px rgba(45,62,80,0.1);
+  background: white;
+}
+
+.edge-label-input::placeholder {
+  color: #a0aab4;
+  font-style: italic;
+}
+
+.confirm-action-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* ================================================================
    COMBOBOX
    ================================================================ */
 
@@ -1281,6 +1326,27 @@ html, body, #root {
 
 .canvas-container.connecting .react-flow__handle {
   cursor: pointer;
+}
+
+/* Edge labels — rendered via EdgeLabelRenderer, must sit above paths */
+.edge-label {
+  position: absolute;
+  pointer-events: all;
+  z-index: 10;
+  background: white;
+  padding: 2px 8px;
+  border-radius: 9px;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  line-height: 1.4;
+  white-space: nowrap;
+  color: var(--edge-color, #666);
+  border: 1.5px solid var(--edge-color, #666);
+  box-shadow: 0 0 0 3px white, 0 1px 3px rgba(0,0,0,0.08);
+  max-width: 120px;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 /* Alignment guide lines */

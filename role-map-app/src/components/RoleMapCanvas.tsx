@@ -23,6 +23,7 @@ import RootNode from './RootNode';
 import SectionContainer from './SectionContainer';
 import CustomEdge from './CustomEdge';
 import { ContextMenu } from './ContextMenu';
+import { EdgeLabelDialog } from './EdgeLabelDialog';
 import { getLayoutedElements } from '../utils/layout';
 import type { RoleMap, RoleGroup, Section, MapConnection } from '../types';
 import { findAlignments, type GuideLine } from '../utils/snapAlignment';
@@ -146,6 +147,12 @@ export function RoleMapCanvas({
     nodeId: null,
     nodeType: 'pane',
   });
+
+  // Edge label dialog state
+  const [labelDialog, setLabelDialog] = useState<{
+    edgeId: string;
+    currentLabel?: string;
+  } | null>(null);
 
   // Track when a connection is being dragged for visual feedback
   const [isConnecting, setIsConnecting] = useState(false);
@@ -1289,10 +1296,10 @@ export function RoleMapCanvas({
           hasArrow={contextMenu.edgeData?.hasArrow}
           onAddLabel={() => {
             if (contextMenu.nodeId) {
-              const label = prompt('Enter connection label:');
-              if (label) {
-                handleUpdateEdgeLabel(contextMenu.nodeId, label);
-              }
+              setLabelDialog({
+                edgeId: contextMenu.nodeId,
+                currentLabel: contextMenu.edgeData?.label || undefined,
+              });
             }
           }}
           onRemoveLabel={() => {
@@ -1335,6 +1342,17 @@ export function RoleMapCanvas({
               handleSetSize(contextMenu.nodeId);
             }
           }}
+        />
+      )}
+
+      {labelDialog && (
+        <EdgeLabelDialog
+          currentLabel={labelDialog.currentLabel}
+          onSave={(label) => {
+            handleUpdateEdgeLabel(labelDialog.edgeId, label);
+            setLabelDialog(null);
+          }}
+          onCancel={() => setLabelDialog(null)}
         />
       )}
     </div>

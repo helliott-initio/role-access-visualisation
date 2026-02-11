@@ -165,10 +165,10 @@ export function ContextMenu({
         )}
         {nodeType === 'edge' && (
           <>
-            {!hasLabel && onAddLabel && (
+            {onAddLabel && (
               <button className="context-menu-item" onClick={() => handleClick(onAddLabel)}>
-                <span className="context-menu-icon">📄</span>
-                Add Label
+                <span className="context-menu-icon">{hasLabel ? '✎' : '📄'}</span>
+                {hasLabel ? 'Edit Label' : 'Add Label'}
               </button>
             )}
             {hasLabel && onRemoveLabel && (

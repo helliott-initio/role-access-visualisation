@@ -144,20 +144,11 @@ export function CustomEdge({
       {label && (
         <EdgeLabelRenderer>
           <div
+            className="edge-label nodrag nopan"
             style={{
-              position: 'absolute',
               transform: `translate(-50%, -50%) translate(${labelX}px,${labelY}px)`,
-              background: 'white',
-              padding: '4px 8px',
-              borderRadius: 4,
-              fontSize: 11,
-              fontWeight: 500,
-              color: color,
-              border: `1px solid ${color}`,
-              boxShadow: '0 1px 4px rgba(0,0,0,0.1)',
-              pointerEvents: 'all',
-            }}
-            className="nodrag nopan"
+              '--edge-color': color,
+            } as React.CSSProperties}
           >
             {label}
           </div>
