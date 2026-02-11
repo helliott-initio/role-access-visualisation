@@ -1,14 +1,32 @@
 import { useState, useCallback, useEffect } from 'react';
-import type { RoleMap, RoleGroup, Section, AppState, MapConnection } from '../types';
+import type { RoleMap, RoleGroup, Section, AppState, MapConnection, TextAnnotation } from '../types';
 import { simpleStarterMap } from '../data/simpleStarterMap';
 
 const STORAGE_KEY = 'role-map-data';
 
+const emptyMap: RoleMap = {
+  id: 'empty-map',
+  name: 'Role Map',
+  domain: 'yourdomain.org',
+  rootGroupId: 'allstaff',
+  sections: [],
+  groups: [
+    {
+      id: 'allstaff',
+      email: 'allstaff@yourdomain.org',
+      label: 'All Staff',
+      parentId: null,
+      sectionId: 'root',
+    },
+  ],
+};
+
 const initialState: AppState = {
-  maps: [simpleStarterMap],
-  activeMapId: simpleStarterMap.id,
+  maps: [emptyMap],
+  activeMapId: emptyMap.id,
   showSecondaryRoles: true,
   selectedNodeId: null,
+  isFirstLaunch: true,
 };
 
 export function useRoleMap() {
@@ -16,7 +34,8 @@ export function useRoleMap() {
     const stored = localStorage.getItem(STORAGE_KEY);
     if (stored) {
       try {
-        return JSON.parse(stored);
+        const parsed = JSON.parse(stored);
+        return { ...parsed, isFirstLaunch: false };
       } catch {
         return initialState;
       }
@@ -546,6 +565,58 @@ export function useRoleMap() {
     localStorage.removeItem(STORAGE_KEY);
   }, []);
 
+  const dismissWelcome = useCallback(() => {
+    setState((prev) => ({ ...prev, isFirstLaunch: false }));
+  }, []);
+
+  const loadStarterMap = useCallback(() => {
+    setState({
+      maps: [simpleStarterMap],
+      activeMapId: simpleStarterMap.id,
+      showSecondaryRoles: true,
+      selectedNodeId: null,
+      isFirstLaunch: false,
+    });
+  }, []);
+
+  const addTextAnnotation = useCallback((annotation: TextAnnotation) => {
+    setState((prev) => ({
+      ...prev,
+      maps: prev.maps.map((map) => {
+        if (map.id !== prev.activeMapId) return map;
+        return { ...map, textAnnotations: [...(map.textAnnotations || []), annotation] };
+      }),
+    }));
+  }, []);
+
+  const updateTextAnnotation = useCallback((id: string, updates: Partial<TextAnnotation>) => {
+    setState((prev) => ({
+      ...prev,
+      maps: prev.maps.map((map) => {
+        if (map.id !== prev.activeMapId) return map;
+        return {
+          ...map,
+          textAnnotations: (map.textAnnotations || []).map((t) =>
+            t.id === id ? { ...t, ...updates } : t
+          ),
+        };
+      }),
+    }));
+  }, []);
+
+  const deleteTextAnnotation = useCallback((id: string) => {
+    setState((prev) => ({
+      ...prev,
+      maps: prev.maps.map((map) => {
+        if (map.id !== prev.activeMapId) return map;
+        return {
+          ...map,
+          textAnnotations: (map.textAnnotations || []).filter((t) => t.id !== id),
+        };
+      }),
+    }));
+  }, []);
+
   return {
     state,
     activeMap,
@@ -574,5 +645,10 @@ export function useRoleMap() {
     importData,
     loadMaps,
     resetToDefault,
+    dismissWelcome,
+    loadStarterMap,
+    addTextAnnotation,
+    updateTextAnnotation,
+    deleteTextAnnotation,
   };
 }

@@ -175,6 +175,18 @@ export function EditModal({
             </>
           )}
 
+          <div className="form-group">
+            <label htmlFor="description">Description (optional)</label>
+            <textarea
+              id="description"
+              className="description-textarea"
+              value={formData.description || ''}
+              onChange={(e) => setFormData((prev) => ({ ...prev, description: e.target.value }))}
+              placeholder="Job description, responsibilities, notes..."
+              rows={3}
+            />
+          </div>
+
           {isSecondarySection && (
             <div className="form-group">
               <label>Supplements Primary Roles</label>

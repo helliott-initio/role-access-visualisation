@@ -22,6 +22,8 @@ import jsPDF from 'jspdf';
 import RoleNode from './RoleNode';
 import RootNode from './RootNode';
 import SectionContainer from './SectionContainer';
+import TextNode from './TextNode';
+import { Tooltip } from './Tooltip';
 import CustomEdge from './CustomEdge';
 import { ContextMenu } from './ContextMenu';
 import { CommandPalette } from './CommandPalette';
@@ -29,13 +31,14 @@ import { EdgeLabelDialog } from './EdgeLabelDialog';
 import { AlertDialog } from './AlertDialog';
 import { SectionSizeDialog } from './SectionSizeDialog';
 import { getLayoutedElements } from '../utils/layout';
-import type { RoleMap, RoleGroup, Section, MapConnection } from '../types';
+import type { RoleMap, RoleGroup, Section, MapConnection, TextAnnotation } from '../types';
 import { findAlignments, type GuideLine } from '../utils/snapAlignment';
 
 const nodeTypes = {
   roleNode: RoleNode,
   rootNode: RootNode,
   sectionContainer: SectionContainer,
+  textNode: TextNode,
 };
 
 const edgeTypes = {
@@ -52,6 +55,9 @@ function AlignmentGuides({ guideLines }: { guideLines: GuideLine[] }) {
   const flowToScreenX = (x: number) => x * zoom + vx;
   const flowToScreenY = (y: number) => y * zoom + vy;
 
+  const alignmentGuides = guideLines.filter(l => l.type !== 'spacing');
+  const spacingGuides = guideLines.filter(l => l.type === 'spacing');
+
   return (
     <svg
       className="alignment-guides"
@@ -59,7 +65,7 @@ function AlignmentGuides({ guideLines }: { guideLines: GuideLine[] }) {
       height="100%"
       style={{ position: 'absolute', top: 0, left: 0, pointerEvents: 'none', zIndex: 1001 }}
     >
-      {guideLines.map((line, i) =>
+      {alignmentGuides.map((line, i) =>
         line.orientation === 'vertical' ? (
           <line
             key={`v-${i}`}
@@ -80,6 +86,47 @@ function AlignmentGuides({ guideLines }: { guideLines: GuideLine[] }) {
           />
         )
       )}
+      {spacingGuides.map((line, i) => {
+        const capSize = 4;
+        if (line.orientation === 'horizontal' && line.start !== undefined && line.end !== undefined) {
+          // Horizontal spacing bracket
+          const y = flowToScreenY(line.position);
+          const x1 = flowToScreenX(line.start);
+          const x2 = flowToScreenX(line.end);
+          const midX = (x1 + x2) / 2;
+          return (
+            <g key={`sp-h-${i}`}>
+              <line x1={x1} y1={y} x2={x2} y2={y} className="spacing-guide-line" />
+              <line x1={x1} y1={y - capSize} x2={x1} y2={y + capSize} className="spacing-guide-cap" />
+              <line x1={x2} y1={y - capSize} x2={x2} y2={y + capSize} className="spacing-guide-cap" />
+              {line.label && (
+                <text x={midX} y={y - 6} className="spacing-guide-label" textAnchor="middle">
+                  {line.label}px
+                </text>
+              )}
+            </g>
+          );
+        } else if (line.orientation === 'vertical' && line.start !== undefined && line.end !== undefined) {
+          // Vertical spacing bracket
+          const x = flowToScreenX(line.position);
+          const y1 = flowToScreenY(line.start);
+          const y2 = flowToScreenY(line.end);
+          const midY = (y1 + y2) / 2;
+          return (
+            <g key={`sp-v-${i}`}>
+              <line x1={x} y1={y1} x2={x} y2={y2} className="spacing-guide-line" />
+              <line x1={x - capSize} y1={y1} x2={x + capSize} y2={y1} className="spacing-guide-cap" />
+              <line x1={x - capSize} y1={y2} x2={x + capSize} y2={y2} className="spacing-guide-cap" />
+              {line.label && (
+                <text x={x + 8} y={midY + 3} className="spacing-guide-label" textAnchor="start">
+                  {line.label}px
+                </text>
+              )}
+            </g>
+          );
+        }
+        return null;
+      })}
     </svg>
   );
 }
@@ -115,6 +162,9 @@ interface RoleMapCanvasProps {
   onAddDepartment: (parentSectionId: string) => void;
   onDuplicateGroup?: (groupId: string) => void;
   onDuplicateSection?: (sectionId: string) => void;
+  onAddTextAnnotation?: (annotation: TextAnnotation) => void;
+  onUpdateTextAnnotation?: (id: string, updates: Partial<TextAnnotation>) => void;
+  onDeleteTextAnnotation?: (id: string) => void;
   commandPaletteOpen?: boolean;
   onCloseCommandPalette?: () => void;
 }
@@ -141,11 +191,14 @@ export function RoleMapCanvas({
   onAddDepartment,
   onDuplicateGroup,
   onDuplicateSection,
+  onAddTextAnnotation,
+  onUpdateTextAnnotation,
+  onDeleteTextAnnotation,
   commandPaletteOpen,
   onCloseCommandPalette,
 }: RoleMapCanvasProps) {
   const flowRef = useRef<HTMLDivElement>(null);
-  const { setCenter } = useReactFlow();
+  const { setCenter, screenToFlowPosition } = useReactFlow();
   const edgeReconnectSuccessful = useRef(true);
   const initialLayoutApplied = useRef(false);
   // Cache positions to survive collapse/expand cycles
@@ -187,6 +240,20 @@ export function RoleMapCanvas({
   // Track when a connection is being dragged for visual feedback
   const [isConnecting, setIsConnecting] = useState(false);
 
+  // Legend panel collapse state
+  const [legendCollapsed, setLegendCollapsed] = useState(false);
+
+  // Store right-click flow position for "Add Text Here"
+  const paneClickFlowPosRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
+
+  // Tooltip state
+  const [tooltip, setTooltip] = useState<{
+    x: number;
+    y: number;
+    nodeId: string;
+  } | null>(null);
+  const tooltipTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   // Alignment guide lines shown during node drag and section resize
   const [guideLines, setGuideLines] = useState<GuideLine[]>([]);
   // Stable refs for passing to SectionContainer without causing re-renders
@@ -204,6 +271,17 @@ export function RoleMapCanvas({
     },
     [map.sections]
   );
+
+  // Stable callbacks for text nodes
+  const handleTextChange = useCallback((nodeId: string, text: string) => {
+    const annotationId = nodeId.replace('text-', '');
+    onUpdateTextAnnotation?.(annotationId, { text });
+  }, [onUpdateTextAnnotation]);
+
+  const handleTextDelete = useCallback((nodeId: string) => {
+    const annotationId = nodeId.replace('text-', '');
+    onDeleteTextAnnotation?.(annotationId);
+  }, [onDeleteTextAnnotation]);
 
   // Build nodes and edges from map data - NO selectedNodeId dependency
   const { builtNodes, builtEdges } = useMemo(() => {
@@ -237,7 +315,7 @@ export function RoleMapCanvas({
             bgColor: section.bgColor,
             email: section.email,
             collapsed: section.collapsed,
-            type: section.type || 'primary',
+            type: section.type || (section.id === 'secondary-roles' ? 'secondary' : 'primary'),
             onResizeGuideLines: (lines: GuideLine[]) => setGuideLinesRef.current(lines),
             onResizeSnap: (snap: { nodeId: string; position: { x: number; y: number }; width: number; height: number }) => {
               setNodesRef.current(nds =>
@@ -314,12 +392,13 @@ export function RoleMapCanvas({
           ...(group.sourceHandle ? { sourceHandle: group.sourceHandle } : {}),
           ...(group.targetHandle ? { targetHandle: group.targetHandle } : {}),
           type: 'custom',
-          animated: edgeStyle.animated || false,
+          animated: false,
           reconnectable: true,
           data: {
             label: edgeLabel,
             color,
             dashed: edgeStyle.dashed || false,
+            animated: edgeStyle.animated || false,
           },
           markerStart: edgeStyle.arrowAtStart && !edgeStyle.noArrow
             ? { type: MarkerType.ArrowClosed, color }
@@ -339,11 +418,12 @@ export function RoleMapCanvas({
               source: group.id,
               target: roleId,
               type: 'custom',
-              animated: true,
+              animated: false,
               data: {
                 label: 'supplements',
                 color: '#9e9e9e',
                 dashed: true,
+                animated: true,
               },
             });
           }
@@ -380,12 +460,13 @@ export function RoleMapCanvas({
           ...(conn.sourceHandle ? { sourceHandle: conn.sourceHandle } : {}),
           ...(conn.targetHandle ? { targetHandle: conn.targetHandle } : {}),
           type: 'custom',
-          animated: connStyle.animated || false,
+          animated: false,
           reconnectable: true,
           data: {
             label: conn.label || '',
             color,
             dashed: connStyle.dashed || false,
+            animated: connStyle.animated || false,
           },
           markerStart: connStyle.arrowAtStart && !connStyle.noArrow
             ? { type: MarkerType.ArrowClosed, color }
@@ -397,8 +478,24 @@ export function RoleMapCanvas({
       }
     });
 
+    // Create text annotation nodes
+    (map.textAnnotations || []).forEach((annotation) => {
+      nodes.push({
+        id: `text-${annotation.id}`,
+        type: 'textNode',
+        position: annotation.position,
+        data: {
+          text: annotation.text,
+          fontSize: annotation.fontSize,
+          color: annotation.color,
+          onTextChange: handleTextChange,
+          onDelete: handleTextDelete,
+        },
+      });
+    });
+
     return { builtNodes: nodes, builtEdges: edges };
-  }, [map.sections, map.groups, map.rootGroupId, map.connections, showSecondaryRoles, getSectionForGroup]);
+  }, [map.sections, map.groups, map.rootGroupId, map.connections, map.textAnnotations, showSecondaryRoles, getSectionForGroup, handleTextChange, handleTextDelete]);
 
   // Apply initial layout only once
   const getInitialNodes = useCallback(() => {
@@ -429,6 +526,7 @@ export function RoleMapCanvas({
       // Detect data changes that affect node rendering (section reassignment, label, color)
       groupMeta: map.groups.map(g => `${g.id}:${g.sectionId}:${g.label}:${g.email || ''}`).sort(),
       sectionMeta: map.sections.map(s => `${s.id}:${s.color}:${s.bgColor}:${s.name}:${s.email || ''}:${s.parentSectionId || ''}:${s.collapsed}`).sort(),
+      textMeta: (map.textAnnotations || []).map(t => `${t.id}:${t.text}:${t.fontSize || ''}:${t.color || ''}`).sort(),
     });
 
     if (mapKey !== prevMapRef.current) {
@@ -471,7 +569,9 @@ export function RoleMapCanvas({
       const removeChanges = changes.filter(c => c.type === 'remove');
       if (removeChanges.length > 0) {
         for (const change of removeChanges) {
-          if (change.id.startsWith('section-')) {
+          if (change.id.startsWith('text-')) {
+            onDeleteTextAnnotation?.(change.id.replace('text-', ''));
+          } else if (change.id.startsWith('section-')) {
             onDeleteSection(change.id.replace('section-', ''));
           } else {
             onDeleteNode(change.id);
@@ -580,10 +680,14 @@ export function RoleMapCanvas({
       // Apply adjusted changes to React Flow state (snapped positions, not raw)
       onNodesChange(adjusted);
 
-      // Save position changes for role nodes
+      // Save position changes for role nodes and text nodes
       adjusted.forEach((change) => {
         if (change.type === 'position' && change.position && change.dragging === false) {
-          if (!change.id.startsWith('section-')) {
+          if (change.id.startsWith('text-')) {
+            const annotationId = change.id.replace('text-', '');
+            onUpdateTextAnnotation?.(annotationId, { position: change.position });
+            positionCacheRef.current.set(change.id, change.position);
+          } else if (!change.id.startsWith('section-')) {
             positionCacheRef.current.set(change.id, change.position);
             onNodePositionChange(change.id, change.position);
           }
@@ -597,7 +701,7 @@ export function RoleMapCanvas({
         }
       });
     },
-    [onNodesChange, onNodePositionChange, onSectionPositionChange, onDeleteNode, onDeleteSection, setNodes, map.groups, map.sections]
+    [onNodesChange, onNodePositionChange, onSectionPositionChange, onDeleteNode, onDeleteSection, onDeleteTextAnnotation, onUpdateTextAnnotation, setNodes, map.groups, map.sections]
   );
 
   // Intercept edge remove changes — let onEdgesDelete handle the data model
@@ -659,6 +763,11 @@ export function RoleMapCanvas({
   const handlePaneContextMenu = useCallback(
     (event: MouseEvent | React.MouseEvent) => {
       event.preventDefault();
+      // Store flow position for "Add Text Here"
+      paneClickFlowPosRef.current = screenToFlowPosition({
+        x: event.clientX,
+        y: event.clientY,
+      });
       setContextMenu({
         show: true,
         x: event.clientX,
@@ -667,14 +776,14 @@ export function RoleMapCanvas({
         nodeType: 'pane',
       });
     },
-    []
+    [screenToFlowPosition]
   );
 
   // Edge context menu
   const handleEdgeContextMenu = useCallback(
     (event: React.MouseEvent, edge: Edge) => {
       event.preventDefault();
-      const edgeData = edge.data as { label?: string; dashed?: boolean } | undefined;
+      const edgeData = edge.data as { label?: string; dashed?: boolean; animated?: boolean } | undefined;
       setContextMenu({
         show: true,
         x: event.clientX,
@@ -684,7 +793,7 @@ export function RoleMapCanvas({
         edgeData: {
           label: edgeData?.label,
           dashed: edgeData?.dashed,
-          animated: edge.animated,
+          animated: edgeData?.animated,
           hasArrow: !!edge.markerEnd || !!edge.markerStart,
           arrowAtStart: !!edge.markerStart,
         },
@@ -879,8 +988,9 @@ export function RoleMapCanvas({
             data: {
               ...currentData,
               dashed: style.dashed ?? currentData?.dashed,
+              animated: style.animated ?? (currentData as { animated?: boolean } | undefined)?.animated,
             },
-            animated: style.animated ?? e.animated,
+            animated: false,
             markerEnd,
             markerStart,
           };
@@ -1236,6 +1346,43 @@ export function RoleMapCanvas({
     return () => document.removeEventListener('keydown', handler);
   }, [nodes, onDuplicateGroup, onDuplicateSection]);
 
+  // Tooltip hover handlers
+  const handleNodeMouseEnter = useCallback(
+    (_: React.MouseEvent, node: Node) => {
+      if (tooltipTimerRef.current) clearTimeout(tooltipTimerRef.current);
+      tooltipTimerRef.current = setTimeout(() => {
+        const domNode = document.querySelector(`[data-id="${node.id}"]`);
+        if (domNode) {
+          const rect = domNode.getBoundingClientRect();
+          setTooltip({ x: rect.right, y: rect.top, nodeId: node.id });
+        }
+      }, 500);
+    },
+    []
+  );
+
+  const handleNodeMouseLeave = useCallback(() => {
+    if (tooltipTimerRef.current) {
+      clearTimeout(tooltipTimerRef.current);
+      tooltipTimerRef.current = null;
+    }
+    setTooltip(null);
+  }, []);
+
+  // Dismiss tooltip on drag start
+  const originalHandleNodeDrag = handleNodeDrag;
+  const handleNodeDragWithTooltip = useCallback(
+    (event: React.MouseEvent, node: Node) => {
+      setTooltip(null);
+      if (tooltipTimerRef.current) {
+        clearTimeout(tooltipTimerRef.current);
+        tooltipTimerRef.current = null;
+      }
+      originalHandleNodeDrag(event, node);
+    },
+    [originalHandleNodeDrag]
+  );
+
   // Section badges for the legend
   const sectionBadges = useMemo(() => {
     const all = map.sections
@@ -1273,7 +1420,9 @@ export function RoleMapCanvas({
         onNodeDoubleClick={handleNodeDoubleClick}
         onNodeContextMenu={handleNodeContextMenu}
         onEdgeContextMenu={handleEdgeContextMenu}
-        onNodeDrag={handleNodeDrag}
+        onNodeMouseEnter={handleNodeMouseEnter}
+        onNodeMouseLeave={handleNodeMouseLeave}
+        onNodeDrag={handleNodeDragWithTooltip}
         onNodeDragStop={handleNodeDragStop}
         onPaneClick={handlePaneClick}
         onPaneContextMenu={handlePaneContextMenu}
@@ -1312,8 +1461,15 @@ export function RoleMapCanvas({
           <div className="legend-header">
             <span className="legend-title">Sections</span>
             <span className="legend-total">{sectionBadges.reduce((sum, s) => sum + s.groupCount, 0)} groups</span>
+            <button
+              className="legend-collapse-btn"
+              onClick={() => setLegendCollapsed(prev => !prev)}
+              title={legendCollapsed ? 'Expand legend' : 'Collapse legend'}
+            >
+              {legendCollapsed ? '+' : '\u2212'}
+            </button>
           </div>
-          <div className="legend-list">
+          {!legendCollapsed && <div className="legend-list">
             {sectionBadges.map((section) => {
               const typeLabel = section.type === 'department' ? 'Dept'
                 : section.type === 'secondary' ? 'Secondary'
@@ -1348,11 +1504,46 @@ export function RoleMapCanvas({
                 </button>
               );
             })}
-          </div>
+          </div>}
         </Panel>
       </ReactFlow>
 
       {guideLines.length > 0 && <AlignmentGuides guideLines={guideLines} />}
+
+      {tooltip && (() => {
+        const nodeId = tooltip.nodeId;
+        if (nodeId.startsWith('section-')) {
+          const sectionId = nodeId.replace('section-', '');
+          const section = map.sections.find(s => s.id === sectionId);
+          if (!section) return null;
+          const groupCount = map.groups.filter(g => g.sectionId === sectionId).length;
+          const typeLabel = section.type === 'department' ? 'Department'
+            : section.type === 'secondary' ? 'Secondary'
+            : section.type === 'support' ? 'Support'
+            : 'Primary';
+          return (
+            <Tooltip x={tooltip.x} y={tooltip.y}>
+              <div className="tooltip-title">{section.name}</div>
+              {section.email && <div className="tooltip-email">{section.email}</div>}
+              <div className="tooltip-meta">{typeLabel} &middot; {groupCount} group{groupCount !== 1 ? 's' : ''}</div>
+              {section.description && <div className="tooltip-desc">{section.description}</div>}
+            </Tooltip>
+          );
+        } else if (!nodeId.startsWith('text-')) {
+          const group = map.groups.find(g => g.id === nodeId);
+          if (!group) return null;
+          const section = map.sections.find(s => s.id === group.sectionId);
+          return (
+            <Tooltip x={tooltip.x} y={tooltip.y}>
+              <div className="tooltip-title">{group.label}</div>
+              <div className="tooltip-email">{group.email}</div>
+              {section && <div className="tooltip-section" style={{ color: section.color }}>{section.name}</div>}
+              {group.description && <div className="tooltip-desc">{group.description}</div>}
+            </Tooltip>
+          );
+        }
+        return null;
+      })()}
 
       {contextMenu.show && (
         <ContextMenu
@@ -1395,6 +1586,14 @@ export function RoleMapCanvas({
               ? () => onAddDepartment(contextMenu.nodeId!)
               : undefined
           }
+          onAddText={onAddTextAnnotation ? () => {
+            const id = crypto.randomUUID().slice(0, 12);
+            onAddTextAnnotation({
+              id,
+              text: '',
+              position: paneClickFlowPosRef.current,
+            });
+          } : undefined}
           onDuplicate={() => {
             if (contextMenu.nodeType === 'section' && contextMenu.nodeId) {
               onDuplicateSection?.(contextMenu.nodeId);

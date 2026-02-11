@@ -21,6 +21,7 @@ interface ContextMenuProps {
   onCopySize?: () => void;
   onPasteSize?: () => void;
   hasCopiedSize?: boolean;
+  onAddText?: () => void;
   onMatchWidth?: () => void;
   onMatchHeight?: () => void;
   onSetSize?: () => void;
@@ -41,6 +42,7 @@ export function ContextMenu({
   onAddGroup,
   onAddSection,
   onAddDepartment,
+  onAddText,
   onDuplicate,
   onAddLabel,
   onRemoveLabel,
@@ -193,6 +195,12 @@ export function ContextMenu({
               <span className="context-menu-icon">▢</span>
               Add Section
             </button>
+            {onAddText && (
+              <button className="context-menu-item" onClick={() => handleClick(onAddText)}>
+                <span className="context-menu-icon">T</span>
+                Add Text Here
+              </button>
+            )}
           </>
         )}
         {nodeType === 'edge' && (

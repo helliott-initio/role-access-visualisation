@@ -10,6 +10,7 @@ import { SectionModal } from './components/SectionModal';
 import { NewMapModal } from './components/NewMapModal';
 import { ConfirmDialog } from './components/ConfirmDialog';
 import { AlertDialog } from './components/AlertDialog';
+import { WelcomeDialog } from './components/WelcomeDialog';
 import type { RoleGroup, Section, RoleMap } from './types';
 
 interface ConfirmState {
@@ -49,6 +50,11 @@ function App() {
     renameMap,
     addMap,
     deleteMap,
+    dismissWelcome,
+    loadStarterMap,
+    addTextAnnotation,
+    updateTextAnnotation,
+    deleteTextAnnotation,
   } = useRoleMap();
 
   const {
@@ -341,6 +347,9 @@ function App() {
             onAddDepartment={handleAddDepartment}
             onDuplicateGroup={duplicateGroup}
             onDuplicateSection={duplicateSection}
+            onAddTextAnnotation={addTextAnnotation}
+            onUpdateTextAnnotation={updateTextAnnotation}
+            onDeleteTextAnnotation={deleteTextAnnotation}
             commandPaletteOpen={showCommandPalette}
             onCloseCommandPalette={() => setShowCommandPalette(false)}
           />
@@ -406,6 +415,17 @@ function App() {
           message={alertState.message}
           variant={alertState.variant}
           onClose={() => setAlertState(null)}
+        />
+      )}
+
+      {state.isFirstLaunch && !fileName && (
+        <WelcomeDialog
+          onCreateNew={dismissWelcome}
+          onOpenFile={() => {
+            dismissWelcome();
+            handleOpenFile();
+          }}
+          onLoadExample={loadStarterMap}
         />
       )}
     </div>

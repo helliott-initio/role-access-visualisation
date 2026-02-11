@@ -815,9 +815,32 @@ html, body, #root {
   font-weight: 500;
 }
 
+.legend-collapse-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  background: rgba(255,255,255,0.08);
+  border: none;
+  border-radius: 4px;
+  color: rgba(255,255,255,0.5);
+  font-size: 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.12s;
+  flex-shrink: 0;
+  line-height: 1;
+}
+
+.legend-collapse-btn:hover {
+  background: rgba(255,255,255,0.14);
+  color: rgba(255,255,255,0.8);
+}
+
 .legend-list {
   overflow-y: auto;
-  max-height: calc(100vh - 200px);
+  max-height: min(calc(100vh - 350px), 320px);
   padding: 6px;
   scrollbar-width: thin;
   scrollbar-color: rgba(255,255,255,0.1) transparent;
@@ -1568,6 +1591,39 @@ html, body, #root {
   text-overflow: ellipsis;
 }
 
+/* Spacing guide lines (equidistant snap) */
+.spacing-guide-line {
+  stroke: #f59e0b;
+  stroke-width: 1;
+  stroke-dasharray: 3 2;
+  opacity: 0.8;
+}
+
+.spacing-guide-cap {
+  stroke: #f59e0b;
+  stroke-width: 1.5;
+  opacity: 0.8;
+}
+
+.spacing-guide-label {
+  fill: #f59e0b;
+  font-size: 9px;
+  font-weight: 600;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  opacity: 0.9;
+}
+
+/* Custom animated edge — stroke-dashoffset animation */
+.edge-animated {
+  animation: edge-dash-flow 0.5s linear infinite;
+}
+
+@keyframes edge-dash-flow {
+  to {
+    stroke-dashoffset: -10;
+  }
+}
+
 /* Alignment guide lines */
 .alignment-guide-line {
   stroke: #3b82f6;
@@ -2088,4 +2144,257 @@ html, body, #root {
   font-size: 0.62rem;
   color: rgba(255, 255, 255, 0.18);
   font-variant-numeric: tabular-nums;
+}
+
+/* ================================================================
+   WELCOME DIALOG
+   ================================================================ */
+
+.welcome-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(8, 15, 22, 0.7);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  z-index: 2000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: welcome-in 0.2s ease-out;
+}
+
+@keyframes welcome-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+.welcome-dialog {
+  width: 94%;
+  max-width: 400px;
+  background: #1a2736;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 16px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+  padding: 36px 32px 28px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  animation: welcome-dialog-in 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes welcome-dialog-in {
+  from { opacity: 0; transform: translateY(-16px) scale(0.96); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.welcome-logo {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 56px;
+  height: 56px;
+  background: rgba(90, 156, 196, 0.12);
+  border-radius: 14px;
+  color: #7eb8da;
+  margin-bottom: 16px;
+}
+
+.welcome-title {
+  margin: 0 0 6px;
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: #e8eff4;
+}
+
+.welcome-subtitle {
+  margin: 0 0 28px;
+  font-size: 0.82rem;
+  color: #7a94a8;
+  line-height: 1.5;
+}
+
+.welcome-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: 100%;
+}
+
+.welcome-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 12px 20px;
+  border-radius: 9px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s;
+  border: none;
+  width: 100%;
+}
+
+.welcome-btn-primary {
+  background: #3d7ea6;
+  color: #e8eff4;
+}
+
+.welcome-btn-primary:hover {
+  background: #4a93be;
+}
+
+.welcome-btn-secondary {
+  background: rgba(255, 255, 255, 0.07);
+  color: #a0b4c4;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.welcome-btn-secondary:hover {
+  background: rgba(255, 255, 255, 0.12);
+  color: #d0e0ec;
+}
+
+.welcome-example-link {
+  margin-top: 18px;
+  background: none;
+  border: none;
+  color: #5a7080;
+  font-size: 0.75rem;
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  transition: color 0.15s;
+}
+
+.welcome-example-link:hover {
+  color: #7eb8da;
+}
+
+/* ================================================================
+   TEXT NODE
+   ================================================================ */
+
+.text-node {
+  padding: 4px 8px;
+  min-width: 40px;
+  cursor: grab;
+  border-radius: 4px;
+  border: 1px solid transparent;
+  transition: border-color 0.15s;
+}
+
+.text-node:hover {
+  border-color: rgba(0, 0, 0, 0.12);
+}
+
+.text-node.selected {
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.15);
+}
+
+.text-node-input {
+  background: white;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  padding: 4px 8px;
+  font-family: inherit;
+  resize: both;
+  min-width: 100px;
+  min-height: 24px;
+  outline: none;
+  line-height: 1.4;
+}
+
+.text-node-input:focus {
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.15);
+}
+
+.text-node-display {
+  line-height: 1.4;
+  min-height: 1em;
+  user-select: none;
+}
+
+.react-flow__node-textNode {
+  z-index: 2 !important;
+}
+
+/* ================================================================
+   NODE TOOLTIP
+   ================================================================ */
+
+.node-tooltip {
+  position: fixed;
+  z-index: 1500;
+  background: #1a2736;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  padding: 10px 14px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+  max-width: 260px;
+  pointer-events: none;
+  animation: tooltip-in 0.12s ease-out;
+}
+
+@keyframes tooltip-in {
+  from { opacity: 0; transform: translateY(4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.tooltip-title {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: #e8eff4;
+  margin-bottom: 2px;
+}
+
+.tooltip-email {
+  font-size: 0.7rem;
+  color: #7a94a8;
+  word-break: break-all;
+}
+
+.tooltip-section {
+  font-size: 0.68rem;
+  font-weight: 500;
+  margin-top: 4px;
+}
+
+.tooltip-desc {
+  font-size: 0.7rem;
+  color: #a0b4c4;
+  margin-top: 6px;
+  line-height: 1.4;
+  border-top: 1px solid rgba(255, 255, 255, 0.07);
+  padding-top: 6px;
+  white-space: pre-wrap;
+}
+
+.tooltip-meta {
+  font-size: 0.65rem;
+  color: #5a7080;
+  margin-top: 4px;
+}
+
+/* Description textarea in modals */
+.description-textarea {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  font-size: 0.85rem;
+  font-family: inherit;
+  resize: vertical;
+  min-height: 60px;
+  transition: border-color 0.2s;
+  line-height: 1.4;
+}
+
+.description-textarea:focus {
+  outline: none;
+  border-color: #2d3e50;
+  box-shadow: 0 0 0 3px rgba(30, 58, 95, 0.1);
 }

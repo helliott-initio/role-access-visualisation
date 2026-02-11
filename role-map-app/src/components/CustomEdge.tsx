@@ -1,5 +1,4 @@
 import {
-  BaseEdge,
   EdgeLabelRenderer,
   getSmoothStepPath,
   Position,
@@ -91,6 +90,7 @@ export function CustomEdge({
   const edgeData = data as CustomEdgeData | undefined;
   const color = edgeData?.color || '#666';
   const dashed = edgeData?.dashed || false;
+  const isAnimated = edgeData?.animated || false;
   const label = edgeData?.label;
 
   // Use handle IDs to derive correct positions for path calculation
@@ -134,16 +134,27 @@ export function CustomEdge({
         strokeWidth={strokeWidth + 4}
         strokeLinecap="round"
       />
-      <BaseEdge
+      {/* Visible edge path — we render manually instead of using BaseEdge
+          so that our knockout stroke stays static while only this path animates */}
+      <path
         id={id}
-        path={edgePath}
-        markerEnd={markerEnd}
-        markerStart={markerStart}
-        style={{
-          stroke: color,
-          strokeWidth,
-          strokeDasharray: dashed ? '5,5' : undefined,
-        }}
+        className={`react-flow__edge-path${isAnimated ? ' edge-animated' : ''}`}
+        d={edgePath}
+        fill="none"
+        stroke={color}
+        strokeWidth={strokeWidth}
+        strokeDasharray={dashed ? '5,5' : undefined}
+        strokeLinecap="round"
+        markerEnd={markerEnd as string}
+        markerStart={markerStart as string}
+      />
+      {/* Transparent interaction path for easier click/hover targeting */}
+      <path
+        d={edgePath}
+        fill="none"
+        stroke="transparent"
+        strokeWidth={20}
+        className="react-flow__edge-interaction"
       />
       {label && (
         <EdgeLabelRenderer>

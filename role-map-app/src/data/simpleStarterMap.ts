@@ -20,6 +20,7 @@ export const simpleStarterMap: RoleMap = {
       color: '#9eb8c7',
       bgColor: '#f0f5f8',
       collapsed: false,
+      type: 'secondary',
     },
   ],
   groups: [

@@ -183,6 +183,20 @@ export function SectionModal({
           </div>
 
           <div className="form-group">
+            <label htmlFor="section-description">Description (optional)</label>
+            <textarea
+              id="section-description"
+              className="description-textarea"
+              value={formData.description || ''}
+              onChange={(e) =>
+                setFormData((prev) => ({ ...prev, description: e.target.value }))
+              }
+              placeholder="Section purpose, responsibilities, notes..."
+              rows={3}
+            />
+          </div>
+
+          <div className="form-group">
             <label>Color Scheme</label>
             <div className="color-presets">
               {PRESET_COLORS.map((preset) => (
