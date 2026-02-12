@@ -526,8 +526,8 @@ export function RoleMapCanvas({
       nodeIds: builtNodes.map(n => n.id).sort(),
       edgeIds: builtEdges.map(e => e.id).sort(),
       // Detect data changes that affect node rendering (section reassignment, label, color)
-      groupMeta: map.groups.map(g => `${g.id}:${g.sectionId}:${g.label}:${g.email || ''}`).sort(),
-      sectionMeta: map.sections.map(s => `${s.id}:${s.color}:${s.bgColor}:${s.name}:${s.email || ''}:${s.parentSectionId || ''}:${s.collapsed}`).sort(),
+      groupMeta: map.groups.map(g => `${g.id}:${g.sectionId}:${g.label}:${g.email || ''}:${g.mailType || ''}`).sort(),
+      sectionMeta: map.sections.map(s => `${s.id}:${s.color}:${s.bgColor}:${s.name}:${s.email || ''}:${s.parentSectionId || ''}:${s.collapsed}:${s.mailType || ''}`).sort(),
       textMeta: (map.textAnnotations || []).map(t => `${t.id}:${t.text}:${t.fontSize || ''}:${t.color || ''}`).sort(),
     });
 

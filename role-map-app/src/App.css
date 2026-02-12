@@ -2421,9 +2421,9 @@ html, body, #root {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 18px;
   height: 18px;
-  border-radius: 5px;
+  min-width: 18px;
+  border-radius: 9px;
   font-size: 10px;
   font-weight: 700;
   letter-spacing: 0.02em;
@@ -2431,6 +2431,33 @@ html, body, #root {
   color: #fff;
   flex-shrink: 0;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.18);
+  overflow: hidden;
+  white-space: nowrap;
+  cursor: default;
+  transition: min-width 0.2s ease, padding 0.2s ease;
+  padding: 0;
+}
+
+.mail-type-letter {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  flex-shrink: 0;
+}
+
+.mail-type-expanded {
+  max-width: 0;
+  overflow: hidden;
+  opacity: 0;
+  padding-right: 0;
+  transition: max-width 0.2s ease, opacity 0.15s ease, padding-right 0.2s ease;
+}
+
+.mail-type-badge:hover .mail-type-expanded {
+  max-width: 60px;
+  opacity: 1;
+  padding-right: 7px;
 }
 
 .mail-type-security {
@@ -2459,10 +2486,14 @@ html, body, #root {
 }
 
 .section-container-badges .mail-type-badge {
-  width: 16px;
   height: 16px;
+  min-width: 16px;
   font-size: 9px;
-  border-radius: 4px;
+  border-radius: 8px;
+}
+
+.section-container-badges .mail-type-letter {
+  width: 16px;
 }
 
 /* ── Mail type selector in modals ── */

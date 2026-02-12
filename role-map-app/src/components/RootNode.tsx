@@ -24,7 +24,8 @@ function RootNode({ data, selected }: NodeProps) {
 
       {mailType && (
         <span className={`mail-type-badge mail-type-${mailType}`}>
-          {mailType === 'security' ? 'S' : 'M'}
+          <span className="mail-type-letter">{mailType === 'security' ? 'S' : 'M'}</span>
+          <span className="mail-type-expanded">{mailType === 'security' ? 'Security' : 'Mailing'}</span>
         </span>
       )}
       <div className="root-node-content">
