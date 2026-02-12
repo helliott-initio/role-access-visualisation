@@ -125,15 +125,18 @@ export function CustomEdge({
 
   return (
     <>
-      {/* Background knockout stroke: erases overlapping edges underneath so
-          multiple edges on the same route don't accumulate thickness */}
-      <path
-        d={edgePath}
-        fill="none"
-        stroke="#f0f2f5"
-        strokeWidth={strokeWidth + 4}
-        strokeLinecap="round"
-      />
+      {/* Background knockout stroke: only for dashed edges so overlapping
+          dashed lines don't accumulate into a solid appearance.
+          Skipped for solid edges to avoid visible artifacts over colored sections. */}
+      {dashed && (
+        <path
+          d={edgePath}
+          fill="none"
+          stroke="#f0f2f5"
+          strokeWidth={strokeWidth + 2}
+          strokeLinecap="round"
+        />
+      )}
       {/* Visible edge path — we render manually instead of using BaseEdge
           so that our knockout stroke stays static while only this path animates */}
       <path
