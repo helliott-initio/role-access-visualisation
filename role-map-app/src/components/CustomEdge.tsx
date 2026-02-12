@@ -12,16 +12,17 @@ interface CustomEdgeData {
   dashed?: boolean;
 }
 
-// Darken light colors so edges remain visible against white/light backgrounds
+// Darken colors so thin edge strokes have enough contrast against light backgrounds.
+// Every color gets darkened — light colors more aggressively, dark colors slightly.
 function darkenForEdge(hex: string): string {
+  if (!hex || hex.length < 7) return hex;
   const r = parseInt(hex.slice(1, 3), 16);
   const g = parseInt(hex.slice(3, 5), 16);
   const b = parseInt(hex.slice(5, 7), 16);
-  // Perceived luminance (ITU-R BT.709)
-  const lum = 0.2126 * r + 0.7152 * g + 0.0722 * b;
-  if (lum < 140) return hex; // already dark enough
-  // Scale toward a darker version — factor decreases as luminance increases
-  const factor = Math.max(0.45, 1 - (lum - 140) / 250);
+  // Blend toward black: factor 0 = black, factor 1 = unchanged
+  // Dark colors (like navy #2d3e50) get ~0.75, light colors (mint #7ecec0) get ~0.50
+  const lum = (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255; // 0–1
+  const factor = 0.5 + 0.3 * (1 - lum); // range: 0.5 (lightest) to 0.8 (darkest)
   const dr = Math.round(r * factor);
   const dg = Math.round(g * factor);
   const db = Math.round(b * factor);

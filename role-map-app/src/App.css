@@ -1505,20 +1505,17 @@ html, body, #root {
   cursor: pointer;
 }
 
-/* Edge hover: thicken stroke and add a soft glow */
-.react-flow__edge:hover .react-flow__edge-path {
-  stroke-width: 3;
-  filter: drop-shadow(0 0 3px currentColor);
-  transition: stroke-width 0.15s ease, filter 0.15s ease;
-}
-
+/* Edge hover: thicken the stroke cleanly */
 .react-flow__edge .react-flow__edge-path {
-  transition: stroke-width 0.15s ease, filter 0.15s ease;
+  transition: stroke-width 0.15s ease, opacity 0.15s ease;
 }
 
-/* Selected edge gets a stronger treatment */
+.react-flow__edge:hover .react-flow__edge-path {
+  stroke-width: 3.5;
+}
+
 .react-flow__edge.selected .react-flow__edge-path {
-  filter: drop-shadow(0 0 4px currentColor);
+  stroke-width: 3;
 }
 
 /* Section containers render behind edges */
