@@ -2451,7 +2451,11 @@ html, body, #root {
   transition: max-width 0.2s ease, opacity 0.15s ease, padding-right 0.2s ease;
 }
 
-.mail-type-badge:hover .mail-type-expanded {
+/* Expand badge on hover — either hovering the badge itself or the parent node/section */
+.mail-type-badge:hover .mail-type-expanded,
+.role-node:hover > .mail-type-badge .mail-type-expanded,
+.root-node:hover > .mail-type-badge .mail-type-expanded,
+.section-container:hover .mail-type-badge .mail-type-expanded {
   max-width: 60px;
   opacity: 1;
   padding-right: 7px;
