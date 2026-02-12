@@ -2460,9 +2460,11 @@ html, body, #root {
   padding-right: 7px;
 }
 
-/* Section header badges stay compact — no expand on hover */
-.section-container-badges .mail-type-expanded {
-  display: none;
+/* Section badge also expands on hover over the section */
+.section-container:hover > .section-mail-badge .mail-type-expanded {
+  max-width: 60px;
+  opacity: 1;
+  padding-right: 7px;
 }
 
 .mail-type-security {
@@ -2482,23 +2484,12 @@ html, body, #root {
   z-index: 5;
 }
 
-/* Badge inside section container header */
-.section-container-badges {
-  display: flex;
-  align-items: center;
-  gap: 5px;
-  flex-shrink: 0;
-}
-
-.section-container-badges .mail-type-badge {
-  height: 16px;
-  min-width: 16px;
-  font-size: 9px;
-  border-radius: 8px;
-}
-
-.section-container-badges .mail-type-letter {
-  width: 16px;
+/* Badge on section container — top-right corner, same as role nodes */
+.section-mail-badge {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  z-index: 5;
 }
 
 /* ── Mail type selector in modals ── */
