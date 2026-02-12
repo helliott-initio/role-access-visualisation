@@ -12,6 +12,22 @@ interface CustomEdgeData {
   dashed?: boolean;
 }
 
+// Darken light colors so edges remain visible against white/light backgrounds
+function darkenForEdge(hex: string): string {
+  const r = parseInt(hex.slice(1, 3), 16);
+  const g = parseInt(hex.slice(3, 5), 16);
+  const b = parseInt(hex.slice(5, 7), 16);
+  // Perceived luminance (ITU-R BT.709)
+  const lum = 0.2126 * r + 0.7152 * g + 0.0722 * b;
+  if (lum < 140) return hex; // already dark enough
+  // Scale toward a darker version — factor decreases as luminance increases
+  const factor = Math.max(0.45, 1 - (lum - 140) / 250);
+  const dr = Math.round(r * factor);
+  const dg = Math.round(g * factor);
+  const db = Math.round(b * factor);
+  return `#${dr.toString(16).padStart(2, '0')}${dg.toString(16).padStart(2, '0')}${db.toString(16).padStart(2, '0')}`;
+}
+
 // Map handle IDs to Position enum for correct path calculation
 function getPositionFromHandleId(handleId: string | null | undefined, fallback: Position): Position {
   if (!handleId) return fallback;
@@ -88,7 +104,8 @@ export function CustomEdge({
   selected,
 }: EdgeProps) {
   const edgeData = data as CustomEdgeData | undefined;
-  const color = edgeData?.color || '#666';
+  const rawColor = edgeData?.color || '#666';
+  const color = darkenForEdge(rawColor);
   const dashed = edgeData?.dashed || false;
   const isAnimated = edgeData?.animated || false;
   const label = edgeData?.label;

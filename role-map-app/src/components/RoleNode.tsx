@@ -10,11 +10,12 @@ interface RoleNodeData {
   bgColor: string;
   isSecondary?: boolean;
   isRoot?: boolean;
+  mailType?: 'security' | 'mailing' | null;
 }
 
 function RoleNode({ data, selected }: NodeProps) {
   const nodeData = data as unknown as RoleNodeData;
-  const { label, email, color, bgColor, isSecondary, isRoot } = nodeData;
+  const { label, email, color, bgColor, isSecondary, isRoot, mailType } = nodeData;
 
   const handleStyle = { background: color, width: 8, height: 8 };
 
@@ -34,6 +35,11 @@ function RoleNode({ data, selected }: NodeProps) {
       <Handle type="source" position={Position.Left} id="left" style={handleStyle} isConnectableStart={true} isConnectableEnd={true} />
       <Handle type="source" position={Position.Right} id="right" style={handleStyle} isConnectableStart={true} isConnectableEnd={true} />
 
+      {mailType && (
+        <span className={`mail-type-badge mail-type-${mailType}`}>
+          {mailType === 'security' ? 'S' : 'M'}
+        </span>
+      )}
       <div className="role-node-content">
         <div className="role-label" style={{ color: isRoot ? '#fff' : color }}>
           {label}

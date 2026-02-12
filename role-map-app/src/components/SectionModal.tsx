@@ -43,6 +43,7 @@ export function SectionModal({
     bgColor: PRESET_COLORS[0].bgColor,
     collapsed: false,
     type: 'primary',
+    mailType: null,
   });
 
   useEffect(() => {
@@ -194,6 +195,35 @@ export function SectionModal({
               placeholder="Section purpose, responsibilities, notes..."
               rows={3}
             />
+          </div>
+
+          <div className="form-group">
+            <label>Section Type Badge</label>
+            <div className="mail-type-selector">
+              <button
+                type="button"
+                className={`mail-type-option ${!formData.mailType ? 'active' : ''}`}
+                onClick={() => setFormData((prev) => ({ ...prev, mailType: null }))}
+              >
+                None
+              </button>
+              <button
+                type="button"
+                className={`mail-type-option mail-type-option-security ${formData.mailType === 'security' ? 'active' : ''}`}
+                onClick={() => setFormData((prev) => ({ ...prev, mailType: 'security' }))}
+              >
+                <span className="mail-type-badge mail-type-security">S</span>
+                Security Group
+              </button>
+              <button
+                type="button"
+                className={`mail-type-option mail-type-option-mailing ${formData.mailType === 'mailing' ? 'active' : ''}`}
+                onClick={() => setFormData((prev) => ({ ...prev, mailType: 'mailing' }))}
+              >
+                <span className="mail-type-badge mail-type-mailing">M</span>
+                Mailing List
+              </button>
+            </div>
           </div>
 
           <div className="form-group">

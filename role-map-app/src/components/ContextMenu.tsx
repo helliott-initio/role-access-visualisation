@@ -3,7 +3,7 @@ import { useCallback, useRef, useEffect, useState } from 'react';
 interface ContextMenuProps {
   x: number;
   y: number;
-  nodeType: 'role' | 'section' | 'pane' | 'edge';
+  nodeType: 'role' | 'section' | 'pane' | 'edge' | 'text';
   onClose: () => void;
   onEdit: () => void;
   onDelete: () => void;
@@ -119,6 +119,17 @@ export function ContextMenu({
             >
               <span className="context-menu-icon">🗑</span>
               Delete Group
+            </button>
+          </>
+        )}
+        {nodeType === 'text' && (
+          <>
+            <button
+              className="context-menu-item danger"
+              onClick={() => handleClick(onDelete)}
+            >
+              <span className="context-menu-icon">🗑</span>
+              Delete Text
             </button>
           </>
         )}

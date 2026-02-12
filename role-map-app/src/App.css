@@ -1502,6 +1502,23 @@ html, body, #root {
 
 .react-flow__edge {
   z-index: 1 !important;
+  cursor: pointer;
+}
+
+/* Edge hover: thicken stroke and add a soft glow */
+.react-flow__edge:hover .react-flow__edge-path {
+  stroke-width: 3;
+  filter: drop-shadow(0 0 3px currentColor);
+  transition: stroke-width 0.15s ease, filter 0.15s ease;
+}
+
+.react-flow__edge .react-flow__edge-path {
+  transition: stroke-width 0.15s ease, filter 0.15s ease;
+}
+
+/* Selected edge gets a stronger treatment */
+.react-flow__edge.selected .react-flow__edge-path {
+  filter: drop-shadow(0 0 4px currentColor);
 }
 
 /* Section containers render behind edges */
@@ -2397,4 +2414,107 @@ html, body, #root {
   outline: none;
   border-color: #2d3e50;
   box-shadow: 0 0 0 3px rgba(30, 58, 95, 0.1);
+}
+
+/* ── Mail type badges (Security / Mailing) ── */
+.mail-type-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 5px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  line-height: 1;
+  color: #fff;
+  flex-shrink: 0;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.18);
+}
+
+.mail-type-security {
+  background: #c0392b;
+}
+
+.mail-type-mailing {
+  background: #2471a3;
+}
+
+/* Badge positioning on role nodes */
+.role-node > .mail-type-badge,
+.root-node > .mail-type-badge {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  z-index: 5;
+}
+
+/* Badge inside section container header */
+.section-container-badges {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  flex-shrink: 0;
+}
+
+.section-container-badges .mail-type-badge {
+  width: 16px;
+  height: 16px;
+  font-size: 9px;
+  border-radius: 4px;
+}
+
+/* ── Mail type selector in modals ── */
+.mail-type-selector {
+  display: flex;
+  gap: 6px;
+}
+
+.mail-type-option {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 12px;
+  border: 2px solid #e0e0e0;
+  border-radius: 8px;
+  background: #fff;
+  font-size: 0.82rem;
+  font-weight: 500;
+  color: #555;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  flex: 1;
+  justify-content: center;
+}
+
+.mail-type-option:hover {
+  border-color: #bbb;
+  background: #fafafa;
+}
+
+.mail-type-option.active {
+  border-color: #2d3e50;
+  background: #f0f4f8;
+  color: #2d3e50;
+  font-weight: 600;
+}
+
+.mail-type-option-security.active {
+  border-color: #c0392b;
+  background: #fdf2f2;
+  color: #922b21;
+}
+
+.mail-type-option-mailing.active {
+  border-color: #2471a3;
+  background: #eaf2f8;
+  color: #1a5276;
+}
+
+.mail-type-option .mail-type-badge {
+  width: 20px;
+  height: 20px;
+  font-size: 11px;
+  border-radius: 5px;
 }

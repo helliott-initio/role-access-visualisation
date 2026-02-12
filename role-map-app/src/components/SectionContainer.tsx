@@ -23,6 +23,7 @@ interface SectionContainerData {
   bgColor: string;
   email?: string;
   type?: 'primary' | 'secondary' | 'support' | 'department';
+  mailType?: 'security' | 'mailing' | null;
   onResizeGuideLines?: (lines: GuideLine[]) => void;
   onResizeSnap?: (snap: ResizeSnapRequest) => void;
 }
@@ -42,7 +43,7 @@ interface SnapLock {
 
 function SectionContainer({ id, data, selected }: NodeProps) {
   const nodeData = data as unknown as SectionContainerData;
-  const { label, color, bgColor, email, type = 'primary', onResizeGuideLines, onResizeSnap } = nodeData;
+  const { label, color, bgColor, email, type = 'primary', mailType, onResizeGuideLines, onResizeSnap } = nodeData;
   const typeLabel = type.charAt(0).toUpperCase() + type.slice(1);
 
   const [isResizing, setIsResizing] = useState(false);
@@ -268,7 +269,14 @@ function SectionContainer({ id, data, selected }: NodeProps) {
             <span className="section-container-label">{label}</span>
             {email && <span className="section-container-email">{email}</span>}
           </div>
-          <span className="section-container-badge">{typeLabel}</span>
+          <div className="section-container-badges">
+            {mailType && (
+              <span className={`mail-type-badge mail-type-${mailType}`}>
+                {mailType === 'security' ? 'S' : 'M'}
+              </span>
+            )}
+            <span className="section-container-badge">{typeLabel}</span>
+          </div>
         </div>
       </div>
 

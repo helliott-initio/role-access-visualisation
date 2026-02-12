@@ -15,6 +15,7 @@ export interface RoleGroup {
     arrowAtStart?: boolean; // If true, arrow at source end; if false/undefined, at target end
     noArrow?: boolean; // If true, no arrow at all
   };
+  mailType?: 'security' | 'mailing' | null; // Whether this group is a Security Group or Mailing List
   // Handle IDs for edge connection points
   sourceHandle?: string; // Handle ID on the parent node (e.g., 'top', 'bottom', 'left', 'right')
   targetHandle?: string; // Handle ID on this node
@@ -30,6 +31,7 @@ export interface Section {
   parentSectionId?: string | null; // If set, this section is a department inside another section
   email?: string; // Email address for the section (mainly for departments)
   description?: string; // Freeform description shown in tooltip
+  mailType?: 'security' | 'mailing' | null; // Whether this section is a Security Group or Mailing List
   position?: { x: number; y: number }; // Section container position
   size?: { width: number; height: number }; // Section container size
 }

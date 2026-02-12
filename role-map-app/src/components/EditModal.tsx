@@ -187,6 +187,35 @@ export function EditModal({
             />
           </div>
 
+          <div className="form-group">
+            <label>Group Type</label>
+            <div className="mail-type-selector">
+              <button
+                type="button"
+                className={`mail-type-option ${!formData.mailType ? 'active' : ''}`}
+                onClick={() => setFormData((prev) => ({ ...prev, mailType: null }))}
+              >
+                None
+              </button>
+              <button
+                type="button"
+                className={`mail-type-option mail-type-option-security ${formData.mailType === 'security' ? 'active' : ''}`}
+                onClick={() => setFormData((prev) => ({ ...prev, mailType: 'security' }))}
+              >
+                <span className="mail-type-badge mail-type-security">S</span>
+                Security Group
+              </button>
+              <button
+                type="button"
+                className={`mail-type-option mail-type-option-mailing ${formData.mailType === 'mailing' ? 'active' : ''}`}
+                onClick={() => setFormData((prev) => ({ ...prev, mailType: 'mailing' }))}
+              >
+                <span className="mail-type-badge mail-type-mailing">M</span>
+                Mailing List
+              </button>
+            </div>
+          </div>
+
           {isSecondarySection && (
             <div className="form-group">
               <label>Supplements Primary Roles</label>

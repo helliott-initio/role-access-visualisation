@@ -136,7 +136,7 @@ interface ContextMenuState {
   x: number;
   y: number;
   nodeId: string | null;
-  nodeType: 'role' | 'section' | 'pane' | 'edge';
+  nodeType: 'role' | 'section' | 'pane' | 'edge' | 'text';
   edgeData?: { label?: string; dashed?: boolean; animated?: boolean; hasArrow?: boolean; arrowAtStart?: boolean };
 }
 
@@ -316,6 +316,7 @@ export function RoleMapCanvas({
             email: section.email,
             collapsed: section.collapsed,
             type: section.type || (section.id === 'secondary-roles' ? 'secondary' : 'primary'),
+            mailType: section.mailType,
             onResizeGuideLines: (lines: GuideLine[]) => setGuideLinesRef.current(lines),
             onResizeSnap: (snap: { nodeId: string; position: { x: number; y: number }; width: number; height: number }) => {
               setNodesRef.current(nds =>
@@ -374,6 +375,7 @@ export function RoleMapCanvas({
           bgColor: isRoot ? '#2d3e50' : (section?.bgColor || '#f5f5f5'),
           isSecondary: group.isSecondary,
           isRoot,
+          mailType: group.mailType,
         },
       });
 
@@ -749,12 +751,13 @@ export function RoleMapCanvas({
     (event: React.MouseEvent, node: Node) => {
       event.preventDefault();
       const isSection = node.id.startsWith('section-');
+      const isText = node.id.startsWith('text-');
       setContextMenu({
         show: true,
         x: event.clientX,
         y: event.clientY,
         nodeId: isSection ? node.id.replace('section-', '') : node.id,
-        nodeType: isSection ? 'section' : 'role',
+        nodeType: isText ? 'text' : isSection ? 'section' : 'role',
       });
     },
     []
@@ -1525,7 +1528,7 @@ export function RoleMapCanvas({
             <Tooltip x={tooltip.x} y={tooltip.y}>
               <div className="tooltip-title">{section.name}</div>
               {section.email && <div className="tooltip-email">{section.email}</div>}
-              <div className="tooltip-meta">{typeLabel} &middot; {groupCount} group{groupCount !== 1 ? 's' : ''}</div>
+              <div className="tooltip-meta">{typeLabel}{section.mailType ? ` \u00b7 ${section.mailType === 'security' ? 'Security Group' : 'Mailing List'}` : ''} &middot; {groupCount} group{groupCount !== 1 ? 's' : ''}</div>
               {section.description && <div className="tooltip-desc">{section.description}</div>}
             </Tooltip>
           );
@@ -1538,6 +1541,7 @@ export function RoleMapCanvas({
               <div className="tooltip-title">{group.label}</div>
               <div className="tooltip-email">{group.email}</div>
               {section && <div className="tooltip-section" style={{ color: section.color }}>{section.name}</div>}
+              {group.mailType && <div className="tooltip-meta">{group.mailType === 'security' ? 'Security Group' : 'Mailing List'}</div>}
               {group.description && <div className="tooltip-desc">{group.description}</div>}
             </Tooltip>
           );
@@ -1561,6 +1565,8 @@ export function RoleMapCanvas({
           onDelete={() => {
             if (contextMenu.nodeType === 'edge' && contextMenu.nodeId) {
               handleDeleteEdge(contextMenu.nodeId);
+            } else if (contextMenu.nodeType === 'text' && contextMenu.nodeId) {
+              onDeleteTextAnnotation?.(contextMenu.nodeId.replace('text-', ''));
             } else if (contextMenu.nodeType === 'section' && contextMenu.nodeId) {
               onDeleteSection(contextMenu.nodeId);
             } else if (contextMenu.nodeId) {
