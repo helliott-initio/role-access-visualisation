@@ -1,6 +1,7 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import type { RoleMap, RoleGroup, Section, AppState, MapConnection, TextAnnotation } from '../types';
 import { simpleStarterMap } from '../data/simpleStarterMap';
+import { useUndoRedo } from './useUndoRedo';
 
 const STORAGE_KEY = 'role-map-data';
 
@@ -50,6 +51,69 @@ export function useRoleMap() {
 
   const activeMap = state.maps.find((m) => m.id === state.activeMapId) || state.maps[0];
 
+  // Undo/redo history — tracks AppState snapshots
+  const { pushState, endBatch, undo: undoState, redo: redoState, canUndo, canRedo, clearHistory } = useUndoRedo<AppState>();
+
+  // Ref to read current state without closure staleness
+  const stateRef = useRef(state);
+  stateRef.current = state;
+
+  // Flag to suppress history recording during undo/redo sync
+  const isUndoingRef = useRef(false);
+
+  /** Push current state to history, then apply a mutation.
+   *  Only snapshots data-model fields (maps, activeMapId) — UI state
+   *  like selectedNodeId and showSecondaryRoles is excluded from undo. */
+  const mutate = useCallback((updater: (prev: AppState) => AppState, batch = false) => {
+    // Don't record history for position changes triggered by undo/redo sync
+    if (isUndoingRef.current) {
+      setState(updater);
+      return;
+    }
+    if (!batch) endBatch();
+    const { selectedNodeId: _, isFirstLaunch: __, showSecondaryRoles: ___, ...dataSnapshot } = stateRef.current;
+    pushState({ ...dataSnapshot, selectedNodeId: null, isFirstLaunch: false, showSecondaryRoles: true } as AppState, batch);
+    setState(updater);
+  }, [pushState, endBatch]);
+
+  // Incremented on each undo/redo to signal canvas to force-sync positions
+  const [undoGeneration, setUndoGeneration] = useState(0);
+
+  const undo = useCallback(() => {
+    endBatch();
+    const restored = undoState(stateRef.current);
+    if (restored) {
+      isUndoingRef.current = true;
+      const current = stateRef.current;
+      setState({
+        ...restored,
+        selectedNodeId: current.selectedNodeId,
+        isFirstLaunch: current.isFirstLaunch,
+        showSecondaryRoles: current.showSecondaryRoles,
+      });
+      setUndoGeneration(g => g + 1);
+      // Clear flag after React processes the state update
+      setTimeout(() => { isUndoingRef.current = false; }, 100);
+    }
+  }, [undoState, endBatch]);
+
+  const redo = useCallback(() => {
+    endBatch();
+    const restored = redoState(stateRef.current);
+    if (restored) {
+      isUndoingRef.current = true;
+      const current = stateRef.current;
+      setState({
+        ...restored,
+        selectedNodeId: current.selectedNodeId,
+        isFirstLaunch: current.isFirstLaunch,
+        showSecondaryRoles: current.showSecondaryRoles,
+      });
+      setUndoGeneration(g => g + 1);
+      setTimeout(() => { isUndoingRef.current = false; }, 100);
+    }
+  }, [redoState, endBatch]);
+
   const setActiveMap = useCallback((mapId: string) => {
     setState((prev) => ({ ...prev, activeMapId: mapId }));
   }, []);
@@ -63,7 +127,7 @@ export function useRoleMap() {
   }, []);
 
   const updateGroup = useCallback((updatedGroup: RoleGroup) => {
-    setState((prev) => ({
+    mutate((prev) => ({
       ...prev,
       maps: prev.maps.map((map) => {
         if (map.id !== prev.activeMapId) return map;
@@ -77,10 +141,10 @@ export function useRoleMap() {
         }
       }),
     }));
-  }, []);
+  }, [mutate]);
 
   const deleteGroup = useCallback((groupId: string) => {
-    setState((prev) => ({
+    mutate((prev) => ({
       ...prev,
       selectedNodeId: null,
       maps: prev.maps.map((map) => {
@@ -110,11 +174,11 @@ export function useRoleMap() {
         return { ...map, groups: newGroups, connections: newConnections };
       }),
     }));
-  }, []);
+  }, [mutate]);
 
   const duplicateGroup = useCallback((groupId: string): string | null => {
     let newId: string | null = null;
-    setState((prev) => {
+    mutate((prev) => {
       const map = prev.maps.find((m) => m.id === prev.activeMapId);
       if (!map) return prev;
       const source = map.groups.find((g) => g.id === groupId);
@@ -143,11 +207,11 @@ export function useRoleMap() {
       };
     });
     return newId;
-  }, []);
+  }, [mutate]);
 
   const duplicateSection = useCallback((sectionId: string): string | null => {
     let newSectionId: string | null = null;
-    setState((prev) => {
+    mutate((prev) => {
       const map = prev.maps.find((m) => m.id === prev.activeMapId);
       if (!map) return prev;
       const sourceSection = map.sections.find((s) => s.id === sectionId);
@@ -254,10 +318,10 @@ export function useRoleMap() {
       };
     });
     return newSectionId;
-  }, []);
+  }, [mutate]);
 
   const updateSection = useCallback((updatedSection: Section) => {
-    setState((prev) => ({
+    mutate((prev) => ({
       ...prev,
       maps: prev.maps.map((map) => {
         if (map.id !== prev.activeMapId) return map;
@@ -279,10 +343,10 @@ export function useRoleMap() {
         }
       }),
     }));
-  }, []);
+  }, [mutate]);
 
   const deleteSection = useCallback((sectionId: string) => {
-    setState((prev) => ({
+    mutate((prev) => ({
       ...prev,
       maps: prev.maps.map((map) => {
         if (map.id !== prev.activeMapId) return map;
@@ -329,10 +393,10 @@ export function useRoleMap() {
         };
       }),
     }));
-  }, []);
+  }, [mutate]);
 
   const toggleSectionCollapse = useCallback((sectionId: string) => {
-    setState((prev) => ({
+    mutate((prev) => ({
       ...prev,
       maps: prev.maps.map((map) => {
         if (map.id !== prev.activeMapId) return map;
@@ -352,8 +416,11 @@ export function useRoleMap() {
         };
       }),
     }));
-  }, []);
+  }, [mutate]);
 
+  // Position updates use setState directly — no undo history entries.
+  // Positions are captured in the pre-mutation snapshot of structural changes,
+  // and restored by the undo sync via undoGeneration.
   const updateGroupPosition = useCallback((groupId: string, position: { x: number; y: number }) => {
     setState((prev) => ({
       ...prev,
@@ -385,7 +452,7 @@ export function useRoleMap() {
   }, []);
 
   const clearPositions = useCallback(() => {
-    setState((prev) => ({
+    mutate((prev) => ({
       ...prev,
       maps: prev.maps.map((map) => {
         if (map.id !== prev.activeMapId) return map;
@@ -395,7 +462,7 @@ export function useRoleMap() {
         };
       }),
     }));
-  }, []);
+  }, [mutate]);
 
   const reparentGroup = useCallback((
     childId: string,
@@ -403,7 +470,7 @@ export function useRoleMap() {
     sourceHandle?: string,
     targetHandle?: string
   ) => {
-    setState((prev) => ({
+    mutate((prev) => ({
       ...prev,
       maps: prev.maps.map((map) => {
         if (map.id !== prev.activeMapId) return map;
@@ -422,10 +489,10 @@ export function useRoleMap() {
         };
       }),
     }));
-  }, []);
+  }, [mutate]);
 
   const updateEdgeStyle = useCallback((groupId: string, edgeLabel?: string, edgeStyle?: RoleGroup['edgeStyle']) => {
-    setState((prev) => ({
+    mutate((prev) => ({
       ...prev,
       maps: prev.maps.map((map) => {
         if (map.id !== prev.activeMapId) return map;
@@ -442,10 +509,10 @@ export function useRoleMap() {
         };
       }),
     }));
-  }, []);
+  }, [mutate]);
 
   const addConnection = useCallback((connection: MapConnection) => {
-    setState((prev) => ({
+    mutate((prev) => ({
       ...prev,
       maps: prev.maps.map((map) => {
         if (map.id !== prev.activeMapId) return map;
@@ -453,10 +520,10 @@ export function useRoleMap() {
         return { ...map, connections: [...existing, connection] };
       }),
     }));
-  }, []);
+  }, [mutate]);
 
   const removeConnection = useCallback((connectionId: string) => {
-    setState((prev) => ({
+    mutate((prev) => ({
       ...prev,
       maps: prev.maps.map((map) => {
         if (map.id !== prev.activeMapId) return map;
@@ -466,10 +533,10 @@ export function useRoleMap() {
         };
       }),
     }));
-  }, []);
+  }, [mutate]);
 
   const updateConnectionStyle = useCallback((connectionId: string, label?: string, style?: MapConnection['style']) => {
-    setState((prev) => ({
+    mutate((prev) => ({
       ...prev,
       maps: prev.maps.map((map) => {
         if (map.id !== prev.activeMapId) return map;
@@ -486,25 +553,57 @@ export function useRoleMap() {
         };
       }),
     }));
-  }, []);
+  }, [mutate]);
 
   const renameMap = useCallback((mapId: string, newName: string) => {
-    setState((prev) => ({
+    mutate((prev) => ({
       ...prev,
       maps: prev.maps.map((m) => m.id === mapId ? { ...m, name: newName } : m),
     }));
-  }, []);
+  }, [mutate]);
+
+  const updateMapDomain = useCallback((mapId: string, newDomain: string) => {
+    const trimmed = newDomain.trim();
+    if (!trimmed) return;
+    mutate((prev) => ({
+      ...prev,
+      maps: prev.maps.map((m) => {
+        if (m.id !== mapId) return m;
+        return {
+          ...m,
+          domain: trimmed,
+          groups: m.groups.map((g) => ({
+            ...g,
+            email: g.email.includes('@')
+              ? `${g.email.split('@')[0]}@${trimmed}`
+              : `${g.email}@${trimmed}`,
+            alias: g.alias && g.alias.includes('@')
+              ? `${g.alias.split('@')[0]}@${trimmed}`
+              : g.alias,
+          })),
+          sections: m.sections.map((s) => ({
+            ...s,
+            email: s.email
+              ? (s.email.includes('@')
+                ? `${s.email.split('@')[0]}@${trimmed}`
+                : `${s.email}@${trimmed}`)
+              : s.email,
+          })),
+        };
+      }),
+    }));
+  }, [mutate]);
 
   const addMap = useCallback((map: RoleMap) => {
-    setState((prev) => ({
+    mutate((prev) => ({
       ...prev,
       maps: [...prev.maps, map],
       activeMapId: map.id,
     }));
-  }, []);
+  }, [mutate]);
 
   const deleteMap = useCallback((mapId: string) => {
-    setState((prev) => {
+    mutate((prev) => {
       // Don't delete if it's the only map
       if (prev.maps.length <= 1) return prev;
 
@@ -519,7 +618,7 @@ export function useRoleMap() {
         activeMapId: newActiveId,
       };
     });
-  }, []);
+  }, [mutate]);
 
   const exportData = useCallback(() => {
     return JSON.stringify(state.maps, null, 2);
@@ -561,15 +660,17 @@ export function useRoleMap() {
   }, []);
 
   const resetToDefault = useCallback(() => {
+    clearHistory();
     setState(initialState);
     localStorage.removeItem(STORAGE_KEY);
-  }, []);
+  }, [clearHistory]);
 
   const dismissWelcome = useCallback(() => {
     setState((prev) => ({ ...prev, isFirstLaunch: false }));
   }, []);
 
   const loadStarterMap = useCallback(() => {
+    clearHistory();
     setState({
       maps: [simpleStarterMap],
       activeMapId: simpleStarterMap.id,
@@ -577,20 +678,20 @@ export function useRoleMap() {
       selectedNodeId: null,
       isFirstLaunch: false,
     });
-  }, []);
+  }, [clearHistory]);
 
   const addTextAnnotation = useCallback((annotation: TextAnnotation) => {
-    setState((prev) => ({
+    mutate((prev) => ({
       ...prev,
       maps: prev.maps.map((map) => {
         if (map.id !== prev.activeMapId) return map;
         return { ...map, textAnnotations: [...(map.textAnnotations || []), annotation] };
       }),
     }));
-  }, []);
+  }, [mutate]);
 
   const updateTextAnnotation = useCallback((id: string, updates: Partial<TextAnnotation>) => {
-    setState((prev) => ({
+    mutate((prev) => ({
       ...prev,
       maps: prev.maps.map((map) => {
         if (map.id !== prev.activeMapId) return map;
@@ -601,11 +702,11 @@ export function useRoleMap() {
           ),
         };
       }),
-    }));
-  }, []);
+    }), true);
+  }, [mutate]);
 
   const deleteTextAnnotation = useCallback((id: string) => {
-    setState((prev) => ({
+    mutate((prev) => ({
       ...prev,
       maps: prev.maps.map((map) => {
         if (map.id !== prev.activeMapId) return map;
@@ -615,7 +716,7 @@ export function useRoleMap() {
         };
       }),
     }));
-  }, []);
+  }, [mutate]);
 
   return {
     state,
@@ -639,6 +740,7 @@ export function useRoleMap() {
     removeConnection,
     updateConnectionStyle,
     renameMap,
+    updateMapDomain,
     addMap,
     deleteMap,
     exportData,
@@ -650,5 +752,11 @@ export function useRoleMap() {
     addTextAnnotation,
     updateTextAnnotation,
     deleteTextAnnotation,
+    undo,
+    redo,
+    canUndo,
+    canRedo,
+    endBatch,
+    undoGeneration,
   };
 }

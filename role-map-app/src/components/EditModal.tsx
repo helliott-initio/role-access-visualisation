@@ -188,6 +188,28 @@ export function EditModal({
           </div>
 
           <div className="form-group">
+            <label htmlFor="alias">Email Alias (optional)</label>
+            <input
+              id="alias"
+              type="text"
+              value={formData.alias || ''}
+              onChange={(e) => setFormData((prev) => ({ ...prev, alias: e.target.value }))}
+              placeholder="e.g., alt-email@domain.org"
+            />
+          </div>
+
+          <div className="form-group">
+            <label htmlFor="groupTemplate">Group Template (optional)</label>
+            <input
+              id="groupTemplate"
+              type="text"
+              value={formData.groupTemplate || ''}
+              onChange={(e) => setFormData((prev) => ({ ...prev, groupTemplate: e.target.value }))}
+              placeholder="e.g., grouptemplate"
+            />
+          </div>
+
+          <div className="form-group">
             <label>Group Type</label>
             <div className="mail-type-selector">
               <button

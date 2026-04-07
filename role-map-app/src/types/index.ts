@@ -16,6 +16,8 @@ export interface RoleGroup {
     noArrow?: boolean; // If true, no arrow at all
   };
   mailType?: 'security' | 'mailing' | null; // Whether this group is a Security Group or Mailing List
+  alias?: string; // Email alias for Google Workspace Migrate export
+  groupTemplate?: string; // Group template name for Google Workspace Migrate export
   // Handle IDs for edge connection points
   sourceHandle?: string; // Handle ID on the parent node (e.g., 'top', 'bottom', 'left', 'right')
   targetHandle?: string; // Handle ID on this node

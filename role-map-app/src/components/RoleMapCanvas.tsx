@@ -4,6 +4,8 @@ import {
   Background,
   Controls,
   MiniMap,
+  NodeToolbar,
+  Position,
   useNodesState,
   useEdgesState,
   MarkerType,
@@ -167,6 +169,10 @@ interface RoleMapCanvasProps {
   onDeleteTextAnnotation?: (id: string) => void;
   commandPaletteOpen?: boolean;
   onCloseCommandPalette?: () => void;
+  undoGeneration?: number;
+  colorMode?: 'light' | 'dark';
+  snapToGrid?: boolean;
+  locked?: boolean;
 }
 
 export function RoleMapCanvas({
@@ -196,6 +202,10 @@ export function RoleMapCanvas({
   onDeleteTextAnnotation,
   commandPaletteOpen,
   onCloseCommandPalette,
+  undoGeneration,
+  colorMode = 'light',
+  snapToGrid = false,
+  locked = false,
 }: RoleMapCanvasProps) {
   const flowRef = useRef<HTMLDivElement>(null);
   const { setCenter, screenToFlowPosition } = useReactFlow();
@@ -205,6 +215,8 @@ export function RoleMapCanvas({
   const positionCacheRef = useRef<Map<string, { x: number; y: number }>>(new Map());
   // Track section positions for group-follows-section behavior
   const sectionPositionsRef = useRef<Map<string, { x: number; y: number }>>(new Map());
+  // Capture child offsets at drag start for stable offset-based positioning
+  const sectionChildOffsetsRef = useRef<Map<string, Map<string, { x: number; y: number }>>>(new Map());
 
   const [contextMenu, setContextMenu] = useState<ContextMenuState>({
     show: false,
@@ -239,6 +251,7 @@ export function RoleMapCanvas({
 
   // Track when a connection is being dragged for visual feedback
   const [isConnecting, setIsConnecting] = useState(false);
+  const [isDragging, setIsDragging] = useState(false);
 
   // Legend panel collapse state
   const [legendCollapsed, setLegendCollapsed] = useState(false);
@@ -336,8 +349,8 @@ export function RoleMapCanvas({
             height: section.size?.height || defaultSize.height,
           },
           zIndex: isDepartment ? 0 : -1,
-          selectable: true,
-          draggable: true,
+          selectable: !locked,
+          draggable: !locked,
         };
 
         // Nest department inside parent section
@@ -497,7 +510,7 @@ export function RoleMapCanvas({
     });
 
     return { builtNodes: nodes, builtEdges: edges };
-  }, [map.sections, map.groups, map.rootGroupId, map.connections, map.textAnnotations, showSecondaryRoles, getSectionForGroup, handleTextChange, handleTextDelete]);
+  }, [map.sections, map.groups, map.rootGroupId, map.connections, map.textAnnotations, showSecondaryRoles, locked, getSectionForGroup, handleTextChange, handleTextDelete]);
 
   // Apply initial layout only once
   const getInitialNodes = useCallback(() => {
@@ -521,7 +534,11 @@ export function RoleMapCanvas({
 
   // Sync when map structure OR visual data changes (not positions)
   const prevMapRef = useRef<string>('');
+  const prevUndoGenRef = useRef(undoGeneration ?? 0);
   useEffect(() => {
+    const isUndoRedo = (undoGeneration ?? 0) !== prevUndoGenRef.current;
+    prevUndoGenRef.current = undoGeneration ?? 0;
+
     const mapKey = JSON.stringify({
       nodeIds: builtNodes.map(n => n.id).sort(),
       edgeIds: builtEdges.map(e => e.id).sort(),
@@ -529,25 +546,36 @@ export function RoleMapCanvas({
       groupMeta: map.groups.map(g => `${g.id}:${g.sectionId}:${g.label}:${g.email || ''}:${g.mailType || ''}`).sort(),
       sectionMeta: map.sections.map(s => `${s.id}:${s.color}:${s.bgColor}:${s.name}:${s.email || ''}:${s.parentSectionId || ''}:${s.collapsed}:${s.mailType || ''}`).sort(),
       textMeta: (map.textAnnotations || []).map(t => `${t.id}:${t.text}:${t.fontSize || ''}:${t.color || ''}`).sort(),
+      locked,
     });
 
-    if (mapKey !== prevMapRef.current) {
+    if (mapKey !== prevMapRef.current || isUndoRedo) {
       prevMapRef.current = mapKey;
 
       // Preserve existing positions when syncing, using cache for hidden nodes
       setNodes(currentNodes => {
-        // Update cache with current positions before syncing
-        currentNodes.forEach(n => {
-          if (n.position.x !== 0 || n.position.y !== 0) {
-            positionCacheRef.current.set(n.id, n.position);
-          }
-        });
+        // Update cache with current positions before syncing (skip on undo)
+        if (!isUndoRedo) {
+          currentNodes.forEach(n => {
+            if (n.position.x !== 0 || n.position.y !== 0) {
+              positionCacheRef.current.set(n.id, n.position);
+            }
+          });
+        }
 
         const newNodes = builtNodes.map(node => {
-          // Priority: current state > cache > data model > default
-          const currentNode = currentNodes.find(n => n.id === node.id);
-          const cachedPos = positionCacheRef.current.get(node.id);
-          const position = currentNode?.position || cachedPos || node.position;
+          // On undo/redo: use data model positions (from builtNodes) — they reflect the restored state
+          // Normal sync: prefer current React Flow state > cache > data model
+          let position: { x: number; y: number };
+          if (isUndoRedo) {
+            position = node.position;
+            // Update cache with restored positions
+            positionCacheRef.current.set(node.id, position);
+          } else {
+            const currentNode = currentNodes.find(n => n.id === node.id);
+            const cachedPos = positionCacheRef.current.get(node.id);
+            position = currentNode?.position || cachedPos || node.position;
+          }
 
           // Track section positions
           if (node.id.startsWith('section-')) {
@@ -562,7 +590,7 @@ export function RoleMapCanvas({
       });
       setEdges(builtEdges);
     }
-  }, [builtNodes, builtEdges, setNodes, setEdges]);
+  }, [builtNodes, builtEdges, setNodes, setEdges, undoGeneration]);
 
   const handleNodesChange = useCallback(
     (changes: NodeChange[]) => {
@@ -599,37 +627,56 @@ export function RoleMapCanvas({
         return change;
       });
 
-      // Check for section drag to move children
+      // Check for section drag to move children using offset-based positioning.
+      // Instead of accumulating deltas (which drift due to race conditions with
+      // snap alignment), we capture each child's offset from the section at drag
+      // start, then on every frame set child.position = section.position + offset.
       adjusted.forEach((change) => {
         if (change.type === 'position' && change.position && change.id.startsWith('section-')) {
           const sectionId = change.id.replace('section-', '');
-          const prevPos = sectionPositionsRef.current.get(sectionId);
 
-          if (prevPos && change.dragging) {
-            // Calculate delta
-            const deltaX = change.position.x - prevPos.x;
-            const deltaY = change.position.y - prevPos.y;
+          if (change.dragging) {
+            // Collect this section + all child department sections
+            const sectionIds = new Set([sectionId]);
+            map.sections.forEach(s => {
+              if (s.parentSectionId === sectionId) {
+                sectionIds.add(s.id);
+              }
+            });
 
-            if (deltaX !== 0 || deltaY !== 0) {
-              // Collect this section + all child department sections
-              const sectionIds = new Set([sectionId]);
-              map.sections.forEach(s => {
-                if (s.parentSectionId === sectionId) {
-                  sectionIds.add(s.id);
-                }
-              });
-
-              // Move unselected groups in this section and its child departments.
-              // Selected groups are already moved by React Flow's multi-drag.
-              setNodes(currentNodes =>
-                currentNodes.map(node => {
-                  if (node.id.startsWith('section-')) return node;
-                  if (node.selected) return node;
+            // On first drag frame, capture child offsets relative to section position
+            if (!sectionChildOffsetsRef.current.has(sectionId)) {
+              const offsets = new Map<string, { x: number; y: number }>();
+              // Use functional getter to read current node positions
+              setNodes(currentNodes => {
+                const sectionNode = currentNodes.find(n => n.id === change.id);
+                const sectionPos = sectionNode?.position || change.position!;
+                for (const node of currentNodes) {
+                  if (node.id.startsWith('section-') || node.selected) continue;
                   const nodeData = node.data as { sectionId?: string };
                   if (nodeData.sectionId && sectionIds.has(nodeData.sectionId)) {
+                    offsets.set(node.id, {
+                      x: node.position.x - sectionPos.x,
+                      y: node.position.y - sectionPos.y,
+                    });
+                  }
+                }
+                return currentNodes; // No mutation on this pass
+              });
+              sectionChildOffsetsRef.current.set(sectionId, offsets);
+            }
+
+            // Apply offsets: child.position = section.position + captured offset
+            const offsets = sectionChildOffsetsRef.current.get(sectionId);
+            if (offsets && offsets.size > 0) {
+              const sectionPos = change.position;
+              setNodes(currentNodes =>
+                currentNodes.map(node => {
+                  const offset = offsets.get(node.id);
+                  if (offset) {
                     const newPos = {
-                      x: node.position.x + deltaX,
-                      y: node.position.y + deltaY,
+                      x: sectionPos.x + offset.x,
+                      y: sectionPos.y + offset.y,
                     };
                     positionCacheRef.current.set(node.id, newPos);
                     return { ...node, position: newPos };
@@ -647,21 +694,22 @@ export function RoleMapCanvas({
           if (change.dragging === false) {
             onSectionPositionChange(sectionId, change.position);
 
-            // Groups were moved via setNodes during drag but their positions
-            // were never written to the data model. Persist them now.
-            const sectionIds = new Set([sectionId]);
-            map.sections.forEach(s => {
-              if (s.parentSectionId === sectionId) sectionIds.add(s.id);
-            });
-            // Read current React Flow positions from the position cache
-            map.groups.forEach(g => {
-              if (g.sectionId && sectionIds.has(g.sectionId)) {
-                const cached = positionCacheRef.current.get(g.id);
-                if (cached) {
-                  onNodePositionChange(g.id, cached);
-                }
-              }
-            });
+            // Persist child positions from the final offset-derived values
+            const offsets = sectionChildOffsetsRef.current.get(sectionId);
+            if (offsets) {
+              const sectionPos = change.position;
+              offsets.forEach((offset, nodeId) => {
+                const finalPos = {
+                  x: sectionPos.x + offset.x,
+                  y: sectionPos.y + offset.y,
+                };
+                positionCacheRef.current.set(nodeId, finalPos);
+                onNodePositionChange(nodeId, finalPos);
+              });
+            }
+
+            // Clean up offsets for this section
+            sectionChildOffsetsRef.current.delete(sectionId);
           }
         }
 
@@ -1226,9 +1274,31 @@ export function RoleMapCanvas({
           y: (result.snapY ?? absDragNode.position.y) - dragOffset.y,
         };
         snappedPositionRef.current.set(dragNode.id, snappedPos);
+
+        // When snapping a section, also move children using captured offsets
+        const isSnappingSection = dragNode.id.startsWith('section-');
+        const sectionSnapId = isSnappingSection ? dragNode.id.replace('section-', '') : null;
+        const snapOffsets = sectionSnapId ? sectionChildOffsetsRef.current.get(sectionSnapId) : null;
+
         setNodes(nds =>
-          nds.map(n => n.id === dragNode.id ? { ...n, position: snappedPos } : n)
+          nds.map(n => {
+            if (n.id === dragNode.id) return { ...n, position: snappedPos };
+            if (snapOffsets) {
+              const offset = snapOffsets.get(n.id);
+              if (offset) {
+                const newPos = { x: snappedPos.x + offset.x, y: snappedPos.y + offset.y };
+                positionCacheRef.current.set(n.id, newPos);
+                return { ...n, position: newPos };
+              }
+            }
+            return n;
+          })
         );
+
+        // Update tracked position to snapped value so handleNodesChange computes correctly
+        if (sectionSnapId) {
+          sectionPositionsRef.current.set(sectionSnapId, snappedPos);
+        }
       } else {
         // No snap — clear so drag-end uses raw position
         snappedPositionRef.current.delete(dragNode.id);
@@ -1425,12 +1495,13 @@ export function RoleMapCanvas({
         onEdgeContextMenu={handleEdgeContextMenu}
         onNodeMouseEnter={handleNodeMouseEnter}
         onNodeMouseLeave={handleNodeMouseLeave}
+        onNodeDragStart={() => setIsDragging(true)}
         onNodeDrag={handleNodeDragWithTooltip}
-        onNodeDragStop={handleNodeDragStop}
+        onNodeDragStop={() => { setIsDragging(false); handleNodeDragStop(); }}
         onPaneClick={handlePaneClick}
         onPaneContextMenu={handlePaneContextMenu}
-        edgesReconnectable
-        deleteKeyCode={["Delete", "Backspace"]}
+        edgesReconnectable={!locked}
+        deleteKeyCode={locked ? null : ["Delete", "Backspace"]}
         selectionOnDrag={false}
         panOnDrag
         selectionKeyCode="Shift"
@@ -1443,12 +1514,18 @@ export function RoleMapCanvas({
         minZoom={0.3}
         maxZoom={2}
         elevateEdgesOnSelect
+        colorMode={colorMode}
+        snapToGrid={snapToGrid}
+        snapGrid={[20, 20]}
+        nodesDraggable={!locked}
+        nodesConnectable={!locked}
+        elementsSelectable={!locked}
         defaultEdgeOptions={{
           type: 'custom',
           zIndex: 1000,
         }}
       >
-        <Background color="#e0e0e0" gap={20} />
+        <Background color={colorMode === 'dark' ? '#444' : '#e0e0e0'} gap={20} />
         <Controls />
         <MiniMap
           nodeColor={(node) => {
@@ -1460,54 +1537,124 @@ export function RoleMapCanvas({
           maskColor="rgba(0,0,0,0.1)"
         />
 
-        <Panel position="top-left" className="section-legend">
+        {/* Floating toolbar on selected nodes — mirrors right-click context menu */}
+        {!locked && !isDragging && !isConnecting && nodes.filter(n => n.selected && !n.id.startsWith('text-')).map(selectedNode => {
+          const isSection = selectedNode.id.startsWith('section-');
+          const sectionId = isSection ? selectedNode.id.replace('section-', '') : null;
+          const group = !isSection ? map.groups.find(g => g.id === selectedNode.id) : null;
+
+          return (
+            <NodeToolbar key={selectedNode.id} nodeId={selectedNode.id} position={Position.Top} offset={8}>
+              <div className="node-toolbar">
+                {/* Edit */}
+                <button className="node-toolbar-btn" onClick={() => isSection && sectionId ? onEditSection(sectionId) : onEditNode(selectedNode.id)} title={isSection ? 'Edit Section' : 'Edit Group'}>
+                  <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M8.5 2.5l3 3M1.5 9.5l6-6 3 3-6 6H1.5v-3z" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                </button>
+
+                {/* Add child / Add group to section */}
+                {isSection && sectionId ? (
+                  <button className="node-toolbar-btn" onClick={() => onAddGroup(undefined, sectionId)} title="Add Group to Section">
+                    <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M7 3v8M3 7h8" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/></svg>
+                  </button>
+                ) : (
+                  <button className="node-toolbar-btn" onClick={() => onAddGroup(selectedNode.id, group?.sectionId)} title="Add Child Group">
+                    <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M7 3v8M3 7h8" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/></svg>
+                  </button>
+                )}
+
+                {/* Add Department (sections only) */}
+                {isSection && sectionId && (
+                  <button className="node-toolbar-btn" onClick={() => onAddDepartment(sectionId)} title="Add Department">
+                    <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><rect x="2" y="2" width="10" height="10" rx="1.5" stroke="currentColor" strokeWidth="1.2"/><path d="M7 5v4M5 7h4" stroke="currentColor" strokeWidth="1.1" strokeLinecap="round"/></svg>
+                  </button>
+                )}
+
+                {/* Duplicate */}
+                <button className="node-toolbar-btn" onClick={() => isSection && sectionId ? onDuplicateSection?.(sectionId) : onDuplicateGroup?.(selectedNode.id)} title={isSection ? 'Duplicate Section' : 'Duplicate Group'}>
+                  <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><rect x="4" y="4" width="8" height="8" rx="1.5" stroke="currentColor" strokeWidth="1.2"/><path d="M10 4V2.5A1.5 1.5 0 008.5 1H2.5A1.5 1.5 0 001 2.5v6A1.5 1.5 0 002.5 10H4" stroke="currentColor" strokeWidth="1.2"/></svg>
+                </button>
+
+                <span className="node-toolbar-sep" />
+
+                {/* Delete */}
+                <button className="node-toolbar-btn node-toolbar-btn-danger" onClick={() => isSection && sectionId ? onDeleteSection(sectionId) : onDeleteNode(selectedNode.id)} title={isSection ? 'Delete Section' : 'Delete Group'}>
+                  <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M2.5 4h9M5 4V2.5h4V4M3.5 4v8h7V4" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                </button>
+              </div>
+            </NodeToolbar>
+          );
+        })}
+
+        <Panel position="top-left" className={`section-legend ${legendCollapsed ? 'legend-panel-collapsed' : ''}`}>
           <div className="legend-header">
             <span className="legend-title">Sections</span>
             <span className="legend-total">{sectionBadges.reduce((sum, s) => sum + s.groupCount, 0)} groups</span>
-            <button
-              className="legend-collapse-btn"
-              onClick={() => setLegendCollapsed(prev => !prev)}
-              title={legendCollapsed ? 'Expand legend' : 'Collapse legend'}
-            >
-              {legendCollapsed ? '+' : '\u2212'}
-            </button>
-          </div>
-          {!legendCollapsed && <div className="legend-list">
-            {sectionBadges.map((section) => {
-              const typeLabel = section.type === 'department' ? 'Dept'
-                : section.type === 'secondary' ? 'Secondary'
-                : section.type === 'support' ? 'Support'
-                : 'Primary';
-              return (
+            <div className="legend-header-actions">
+              {!legendCollapsed && (
                 <button
-                  key={section.id}
-                  className={`legend-item ${section.collapsed ? 'legend-collapsed' : ''} ${section.isDepartment ? 'legend-dept' : ''}`}
-                  style={{
-                    '--sec-color': section.color,
-                    '--sec-bg': section.bgColor,
-                  } as React.CSSProperties}
-                  onClick={() => onToggleSectionCollapse(section.id)}
-                  title={section.collapsed ? 'Click to expand' : 'Click to collapse'}
+                  className="legend-collapse-btn legend-toggle-all"
+                  onClick={() => {
+                    // Only toggle parent sections — child departments cascade automatically
+                    const parents = sectionBadges.filter(s => !s.isDepartment);
+                    const allCollapsed = parents.every(s => s.collapsed);
+                    parents.forEach(s => {
+                      if (allCollapsed ? s.collapsed : !s.collapsed) {
+                        onToggleSectionCollapse(s.id);
+                      }
+                    });
+                  }}
+                  title={sectionBadges.every(s => s.collapsed) ? 'Expand all sections' : 'Collapse all sections'}
                 >
-                  {section.isDepartment ? (
-                    <>
-                      <span className="legend-dept-line" style={{ background: section.color }} />
-                      <span className="legend-dept-dot" style={{ borderColor: section.color }} />
-                    </>
-                  ) : (
-                    <span className="legend-swatch" style={{ background: section.color }} />
-                  )}
-                  <span className="legend-name">{section.name}</span>
-                  <span className="legend-badge" style={{
-                    background: section.isDepartment ? section.bgColor : section.color,
-                    color: section.isDepartment ? section.color : 'white',
-                  }}>{typeLabel}</span>
-                  <span className="legend-count">{section.groupCount}</span>
-                  <span className="legend-chevron">{section.collapsed ? '+' : '\u2212'}</span>
+                  {sectionBadges.every(s => s.collapsed) ? '⊞' : '⊟'}
                 </button>
-              );
-            })}
-          </div>}
+              )}
+              <button
+                className="legend-collapse-btn"
+                onClick={() => setLegendCollapsed(prev => !prev)}
+                title={legendCollapsed ? 'Expand legend' : 'Collapse legend'}
+              >
+                {legendCollapsed ? '▸' : '▾'}
+              </button>
+            </div>
+          </div>
+          <div className={`legend-list-wrapper ${legendCollapsed ? 'legend-list-hidden' : ''}`}>
+            <div className="legend-list">
+              {sectionBadges.map((section) => {
+                const typeLabel = section.type === 'department' ? 'Dept'
+                  : section.type === 'secondary' ? 'Secondary'
+                  : section.type === 'support' ? 'Support'
+                  : 'Primary';
+                return (
+                  <button
+                    key={section.id}
+                    className={`legend-item ${section.collapsed ? 'legend-collapsed' : ''} ${section.isDepartment ? 'legend-dept' : ''}`}
+                    style={{
+                      '--sec-color': section.color,
+                      '--sec-bg': section.bgColor,
+                    } as React.CSSProperties}
+                    onClick={() => onToggleSectionCollapse(section.id)}
+                    title={section.collapsed ? 'Click to expand' : 'Click to collapse'}
+                  >
+                    {section.isDepartment ? (
+                      <>
+                        <span className="legend-dept-line" style={{ background: section.color }} />
+                        <span className="legend-dept-dot" style={{ borderColor: section.color }} />
+                      </>
+                    ) : (
+                      <span className="legend-swatch" style={{ background: section.color }} />
+                    )}
+                    <span className="legend-name">{section.name}</span>
+                    <span className="legend-badge" style={{
+                      background: section.isDepartment ? section.bgColor : section.color,
+                      color: section.isDepartment ? section.color : 'white',
+                    }}>{typeLabel}</span>
+                    <span className="legend-count">{section.groupCount}</span>
+                    <span className="legend-chevron">{section.collapsed ? '▸' : '▾'}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
         </Panel>
       </ReactFlow>
 
@@ -1736,6 +1883,31 @@ export function RoleMapCanvas({
       )}
     </div>
   );
+}
+
+export async function exportToPNG(elementId: string, filename: string, onError?: (message: string) => void) {
+  const element = document.getElementById(elementId);
+  if (!element) return;
+
+  try {
+    const hiResScale = 2;
+    const canvas = await html2canvas(element, {
+      scale: hiResScale,
+      useCORS: true,
+      logging: false,
+      backgroundColor: '#ffffff',
+    });
+
+    const link = document.createElement('a');
+    link.download = `${filename}.png`;
+    link.href = canvas.toDataURL('image/png');
+    link.click();
+  } catch (error) {
+    console.error('Error exporting PNG:', error);
+    if (onError) {
+      onError('Error exporting PNG. Please try again.');
+    }
+  }
 }
 
 export async function exportToPDF(elementId: string, filename: string, onError?: (message: string) => void) {

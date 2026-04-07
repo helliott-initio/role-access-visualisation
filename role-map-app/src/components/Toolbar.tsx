@@ -31,6 +31,19 @@ interface ToolbarProps {
   onLoadError?: (message: string) => void;
   onSaveNow: () => void;
   onSearch?: () => void;
+  onUndo?: () => void;
+  onRedo?: () => void;
+  canUndo?: boolean;
+  canRedo?: boolean;
+  colorMode?: 'light' | 'dark';
+  onToggleColorMode?: () => void;
+  snapToGrid?: boolean;
+  onToggleSnapToGrid?: () => void;
+  locked?: boolean;
+  onToggleLocked?: () => void;
+  onExportPNG?: () => void;
+  onExportTSV?: () => void;
+  onUpdateMapDomain?: (newDomain: string) => void;
 }
 
 function SaveStatusIndicator({ status, error }: { status: SaveStatus; error: string | null }) {
@@ -135,7 +148,44 @@ export function Toolbar({
   onSaveNow,
   onLoadError,
   onSearch,
+  onUndo,
+  onRedo,
+  canUndo,
+  canRedo,
+  colorMode,
+  onToggleColorMode,
+  snapToGrid,
+  onToggleSnapToGrid,
+  locked,
+  onToggleLocked,
+  onExportPNG,
+  onExportTSV,
+  onUpdateMapDomain,
 }: ToolbarProps) {
+  const [editingDomain, setEditingDomain] = useState(false);
+  const [domainValue, setDomainValue] = useState(activeMapDomain);
+  const domainInputRef = useRef<HTMLInputElement>(null);
+
+  // Sync domain value when active map changes
+  useEffect(() => {
+    setDomainValue(activeMapDomain);
+  }, [activeMapDomain]);
+
+  useEffect(() => {
+    if (editingDomain && domainInputRef.current) {
+      domainInputRef.current.focus();
+      domainInputRef.current.select();
+    }
+  }, [editingDomain]);
+
+  const commitDomain = () => {
+    const trimmed = domainValue.trim();
+    if (trimmed && trimmed !== activeMapDomain && onUpdateMapDomain) {
+      onUpdateMapDomain(trimmed);
+    }
+    setEditingDomain(false);
+  };
+
   const handleLoadFile = () => {
     const input = document.createElement('input');
     input.type = 'file';
@@ -178,7 +228,27 @@ export function Toolbar({
           </div>
           <div className="hdr-titles">
             <h1 className="hdr-title">Role Access</h1>
-            <span className="hdr-domain">{activeMapDomain}</span>
+            {editingDomain ? (
+              <input
+                ref={domainInputRef}
+                className="hdr-domain hdr-domain-input"
+                value={domainValue}
+                onChange={(e) => setDomainValue(e.target.value)}
+                onBlur={commitDomain}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') commitDomain();
+                  if (e.key === 'Escape') { setDomainValue(activeMapDomain); setEditingDomain(false); }
+                }}
+              />
+            ) : (
+              <span
+                className="hdr-domain hdr-domain-editable"
+                onClick={() => onUpdateMapDomain && setEditingDomain(true)}
+                title="Click to change domain"
+              >
+                {activeMapDomain}
+              </span>
+            )}
           </div>
         </div>
 
@@ -226,8 +296,73 @@ export function Toolbar({
           </div>
         )}
 
-        {/* Right: search + view toggle + data actions */}
+        {/* Right: undo/redo + search + view toggle + data actions */}
         <div className="hdr-actions">
+          {onUndo && (
+            <button
+              className="hdr-icon-btn"
+              onClick={onUndo}
+              disabled={!canUndo}
+              title="Undo (Ctrl+Z)"
+            >
+              <svg width="15" height="15" viewBox="0 0 16 16" fill="none">
+                <path d="M4 6h6a3 3 0 0 1 0 6H7" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"/>
+                <path d="M6.5 3.5L4 6l2.5 2.5" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"/>
+              </svg>
+            </button>
+          )}
+          {onRedo && (
+            <button
+              className="hdr-icon-btn"
+              onClick={onRedo}
+              disabled={!canRedo}
+              title="Redo (Ctrl+Y)"
+            >
+              <svg width="15" height="15" viewBox="0 0 16 16" fill="none">
+                <path d="M12 6H6a3 3 0 0 0 0 6h3" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"/>
+                <path d="M9.5 3.5L12 6 9.5 8.5" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"/>
+              </svg>
+            </button>
+          )}
+
+          {onToggleColorMode && (
+            <button
+              className={`hdr-icon-btn ${colorMode === 'dark' ? 'hdr-icon-btn-active' : ''}`}
+              onClick={onToggleColorMode}
+              title={colorMode === 'dark' ? 'Light mode' : 'Dark mode'}
+            >
+              {colorMode === 'dark' ? (
+                <svg width="15" height="15" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="3.5" stroke="currentColor" strokeWidth="1.3"/><path d="M8 2v1.5M8 12.5V14M2 8h1.5M12.5 8H14M3.75 3.75l1.06 1.06M11.19 11.19l1.06 1.06M12.25 3.75l-1.06 1.06M4.81 11.19l-1.06 1.06" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/></svg>
+              ) : (
+                <svg width="15" height="15" viewBox="0 0 16 16" fill="none"><path d="M13.5 9.5a5.5 5.5 0 01-7-7 5.5 5.5 0 107 7z" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"/></svg>
+              )}
+            </button>
+          )}
+          {onToggleSnapToGrid && (
+            <button
+              className={`hdr-icon-btn ${snapToGrid ? 'hdr-icon-btn-active' : ''}`}
+              onClick={onToggleSnapToGrid}
+              title={snapToGrid ? 'Disable snap to grid' : 'Enable snap to grid'}
+            >
+              <svg width="15" height="15" viewBox="0 0 16 16" fill="none"><path d="M2 2h4v4H2zM10 2h4v4h-4zM2 10h4v4H2zM10 10h4v4h-4z" stroke="currentColor" strokeWidth="1.2"/></svg>
+            </button>
+          )}
+          {onToggleLocked && (
+            <button
+              className={`hdr-icon-btn ${locked ? 'hdr-icon-btn-active' : ''}`}
+              onClick={onToggleLocked}
+              title={locked ? 'Unlock editing' : 'Lock (read-only)'}
+            >
+              {locked ? (
+                <svg width="15" height="15" viewBox="0 0 16 16" fill="none"><rect x="3" y="7" width="10" height="7" rx="1.5" stroke="currentColor" strokeWidth="1.3"/><path d="M5 7V5a3 3 0 016 0v2" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/></svg>
+              ) : (
+                <svg width="15" height="15" viewBox="0 0 16 16" fill="none"><rect x="3" y="7" width="10" height="7" rx="1.5" stroke="currentColor" strokeWidth="1.3"/><path d="M5 7V5a3 3 0 016 0" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/></svg>
+              )}
+            </button>
+          )}
+
+          <span className="hdr-sep" />
+
           {onSearch && (
             <button className="hdr-search-trigger" onClick={onSearch} title="Search (Ctrl+K)">
               <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
@@ -288,6 +423,25 @@ export function Toolbar({
               </svg>
               Export PDF
             </button>
+            {onExportPNG && (
+              <button className="hdr-dropdown-item" onClick={onExportPNG}>
+                <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+                  <rect x="2" y="2" width="10" height="10" rx="1.5" stroke="currentColor" strokeWidth="1.2"/>
+                  <circle cx="5" cy="5.5" r="1.2" stroke="currentColor" strokeWidth="1"/>
+                  <path d="M2 10l3-3 2 2 2-2.5 3 3.5" stroke="currentColor" strokeWidth="1.1" strokeLinecap="round" strokeLinejoin="round"/>
+                </svg>
+                Export PNG
+              </button>
+            )}
+            {onExportTSV && (
+              <button className="hdr-dropdown-item" onClick={onExportTSV}>
+                <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+                  <rect x="2" y="1.5" width="10" height="11" rx="1" stroke="currentColor" strokeWidth="1.2"/>
+                  <path d="M4.5 5H9.5M4.5 7.5H9.5M4.5 10H7" stroke="currentColor" strokeWidth="0.8" strokeLinecap="round"/>
+                </svg>
+                Export TSV (Sheets)
+              </button>
+            )}
           </DropdownMenu>
         </div>
       </div>
