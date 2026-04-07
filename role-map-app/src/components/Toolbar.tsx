@@ -44,6 +44,8 @@ interface ToolbarProps {
   onExportPNG?: () => void;
   onExportTSV?: () => void;
   onUpdateMapDomain?: (newDomain: string) => void;
+  activeMapPrefix?: string;
+  onUpdateMapPrefix?: (newPrefix: string) => void;
 }
 
 function SaveStatusIndicator({ status, error }: { status: SaveStatus; error: string | null }) {
@@ -161,6 +163,8 @@ export function Toolbar({
   onExportPNG,
   onExportTSV,
   onUpdateMapDomain,
+  activeMapPrefix,
+  onUpdateMapPrefix,
 }: ToolbarProps) {
   const [editingDomain, setEditingDomain] = useState(false);
   const [domainValue, setDomainValue] = useState(activeMapDomain);
@@ -184,6 +188,29 @@ export function Toolbar({
       onUpdateMapDomain(trimmed);
     }
     setEditingDomain(false);
+  };
+
+  const [editingPrefix, setEditingPrefix] = useState(false);
+  const [prefixValue, setPrefixValue] = useState(activeMapPrefix || '');
+  const prefixInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    setPrefixValue(activeMapPrefix || '');
+  }, [activeMapPrefix]);
+
+  useEffect(() => {
+    if (editingPrefix && prefixInputRef.current) {
+      prefixInputRef.current.focus();
+      prefixInputRef.current.select();
+    }
+  }, [editingPrefix]);
+
+  const commitPrefix = () => {
+    const trimmed = prefixValue.trim();
+    if (trimmed !== (activeMapPrefix || '') && onUpdateMapPrefix) {
+      onUpdateMapPrefix(trimmed);
+    }
+    setEditingPrefix(false);
   };
 
   const handleLoadFile = () => {
@@ -249,6 +276,30 @@ export function Toolbar({
                 {activeMapDomain}
               </span>
             )}
+            <div className="hdr-prefix-row">
+              {editingPrefix ? (
+                <input
+                  ref={prefixInputRef}
+                  className="hdr-domain hdr-domain-input hdr-prefix-input"
+                  value={prefixValue}
+                  onChange={(e) => setPrefixValue(e.target.value)}
+                  onBlur={commitPrefix}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') commitPrefix();
+                    if (e.key === 'Escape') { setPrefixValue(activeMapPrefix || ''); setEditingPrefix(false); }
+                  }}
+                  placeholder="e.g. CHS"
+                />
+              ) : (
+                <span
+                  className="hdr-domain hdr-domain-editable hdr-prefix"
+                  onClick={() => onUpdateMapPrefix && setEditingPrefix(true)}
+                  title="Click to set school prefix (e.g. CHS)"
+                >
+                  {activeMapPrefix ? `Prefix: ${activeMapPrefix}` : 'Set prefix...'}
+                </span>
+              )}
+            </div>
           </div>
         </div>
 

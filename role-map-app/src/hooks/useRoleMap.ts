@@ -555,6 +555,46 @@ export function useRoleMap() {
     }));
   }, [mutate]);
 
+  const updateMapPrefix = useCallback((mapId: string, newPrefix: string) => {
+    const trimmed = newPrefix.trim().toLowerCase();
+    mutate((prev) => {
+      const map = prev.maps.find(m => m.id === mapId);
+      if (!map) return prev;
+      const oldPrefix = (map.prefix || '').toLowerCase();
+
+      const rewriteEmail = (email: string): string => {
+        const [local, domain] = email.includes('@') ? email.split('@') : [email, ''];
+        // Remove old prefix if present
+        const stripped = oldPrefix && local.toLowerCase().startsWith(oldPrefix)
+          ? local.slice(oldPrefix.length)
+          : local;
+        // Add new prefix
+        const newLocal = trimmed ? `${trimmed}${stripped}` : stripped;
+        return domain ? `${newLocal}@${domain}` : newLocal;
+      };
+
+      return {
+        ...prev,
+        maps: prev.maps.map((m) => {
+          if (m.id !== mapId) return m;
+          return {
+            ...m,
+            prefix: trimmed || undefined,
+            groups: m.groups.map((g) => ({
+              ...g,
+              email: rewriteEmail(g.email),
+              alias: g.alias ? rewriteEmail(g.alias) : g.alias,
+            })),
+            sections: m.sections.map((s) => ({
+              ...s,
+              email: s.email ? rewriteEmail(s.email) : s.email,
+            })),
+          };
+        }),
+      };
+    });
+  }, [mutate]);
+
   const renameMap = useCallback((mapId: string, newName: string) => {
     mutate((prev) => ({
       ...prev,
@@ -741,6 +781,7 @@ export function useRoleMap() {
     updateConnectionStyle,
     renameMap,
     updateMapDomain,
+    updateMapPrefix,
     addMap,
     deleteMap,
     exportData,

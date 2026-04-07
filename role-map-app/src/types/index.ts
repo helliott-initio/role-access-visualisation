@@ -57,6 +57,7 @@ export interface RoleMap {
   id: string;
   name: string;
   domain: string;
+  prefix?: string; // School acronym prefix for group/dept emails (e.g. "CHS")
   sections: Section[];
   groups: RoleGroup[];
   connections?: MapConnection[]; // Standalone edges not tied to parentId
