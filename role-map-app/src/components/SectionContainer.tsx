@@ -266,7 +266,7 @@ function SectionContainer({ id, data, selected }: NodeProps) {
       >
         <div className="section-container-header" style={{ backgroundColor: color }}>
           <div className="section-container-header-text">
-            <span className="section-container-label">{label}</span>
+            <span className="section-container-label" title={label}>{label}</span>
             {email && <span className="section-container-email">{email}</span>}
           </div>
           <span className="section-container-badge">{typeLabel}</span>
