@@ -1878,6 +1878,9 @@ html, body, #root {
 .section-container-label {
   font-weight: 600;
   font-size: 0.875rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .section-container-email {
