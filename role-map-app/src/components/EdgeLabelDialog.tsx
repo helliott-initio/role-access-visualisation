@@ -57,7 +57,7 @@ export function EdgeLabelDialog({
             ? 'Update the text shown on this connection.'
             : 'Add a text label to this connection.'}
         </p>
-        <form onSubmit={handleSubmit}>
+        <form onSubmit={handleSubmit} autoComplete="off" data-1p-ignore data-lpignore="true" data-form-type="other">
           <input
             ref={inputRef}
             className="edge-label-input"

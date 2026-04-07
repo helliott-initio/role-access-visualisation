@@ -51,7 +51,7 @@ export function SectionSizeDialog({
         </div>
         <h3 className="confirm-title">Set Section Size</h3>
         <p className="confirm-message">Enter width and height in pixels. Minimum 150 x 100.</p>
-        <form onSubmit={handleSubmit}>
+        <form onSubmit={handleSubmit} autoComplete="off" data-1p-ignore data-lpignore="true" data-form-type="other">
           <div className="size-dialog-fields">
             <div className="size-dialog-field">
               <label className="size-dialog-label">Width</label>

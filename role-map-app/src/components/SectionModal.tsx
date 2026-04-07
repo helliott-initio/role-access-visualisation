@@ -116,7 +116,7 @@ export function SectionModal({
           </button>
         </div>
 
-        <form onSubmit={handleSubmit}>
+        <form onSubmit={handleSubmit} autoComplete="off" data-1p-ignore data-lpignore="true" data-form-type="other">
           <div className="form-group">
             <label htmlFor="name">Section Name</label>
             <input
