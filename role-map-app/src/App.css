@@ -107,6 +107,21 @@ html, body, #root {
   width: 160px;
 }
 
+.hdr-prefix-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.hdr-prefix {
+  opacity: 0.6;
+  font-style: italic;
+}
+
+.hdr-prefix-input {
+  width: 80px;
+}
+
 /* File indicator (center) */
 .hdr-file {
   position: absolute;

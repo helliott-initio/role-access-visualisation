@@ -50,6 +50,7 @@ function App() {
     loadMaps,
     renameMap,
     updateMapDomain,
+    updateMapPrefix,
     addMap,
     deleteMap,
     dismissWelcome,
@@ -358,6 +359,8 @@ function App() {
         onExportPNG={handleExportPNG}
         onExportTSV={handleExportTSV}
         onUpdateMapDomain={(newDomain) => updateMapDomain(state.activeMapId, newDomain)}
+        activeMapPrefix={activeMap.prefix || ''}
+        onUpdateMapPrefix={(newPrefix) => updateMapPrefix(state.activeMapId, newPrefix)}
       />
 
       {needsReopen && (
