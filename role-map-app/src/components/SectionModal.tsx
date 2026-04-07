@@ -146,25 +146,23 @@ export function SectionModal({
             </select>
           </div>
 
-          {!formData.parentSectionId && (
-            <div className="form-group">
-              <label htmlFor="type">Section Type</label>
-              <select
-                id="type"
-                value={formData.type || 'primary'}
-                onChange={(e) =>
-                  setFormData((prev) => ({
-                    ...prev,
-                    type: e.target.value as 'primary' | 'secondary' | 'support',
-                  }))
-                }
-              >
-                <option value="primary">Primary</option>
-                <option value="secondary">Secondary</option>
-                <option value="support">Support</option>
-              </select>
-            </div>
-          )}
+          <div className="form-group">
+            <label htmlFor="type">Role Type</label>
+            <select
+              id="type"
+              value={formData.type || 'primary'}
+              onChange={(e) =>
+                setFormData((prev) => ({
+                  ...prev,
+                  type: e.target.value as 'primary' | 'secondary' | 'support',
+                }))
+              }
+            >
+              <option value="primary">Primary</option>
+              <option value="secondary">Secondary</option>
+              <option value="support">Support</option>
+            </select>
+          </div>
 
           <div className="form-group">
             <label htmlFor="section-email">Section Email (optional)</label>
