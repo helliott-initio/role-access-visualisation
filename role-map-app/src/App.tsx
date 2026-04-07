@@ -3,7 +3,8 @@ import { ReactFlowProvider } from '@xyflow/react';
 
 import { useRoleMap } from './hooks/useRoleMap';
 import { useFileHandle } from './hooks/useFileHandle';
-import { RoleMapCanvas, exportToPDF } from './components/RoleMapCanvas';
+import { RoleMapCanvas, exportToPDF, exportToPNG } from './components/RoleMapCanvas';
+import { exportMapToTsv, downloadTsv } from './utils/exportTsv';
 import { Toolbar } from './components/Toolbar';
 import { EditModal } from './components/EditModal';
 import { SectionModal } from './components/SectionModal';
@@ -48,6 +49,7 @@ function App() {
     importData,
     loadMaps,
     renameMap,
+    updateMapDomain,
     addMap,
     deleteMap,
     dismissWelcome,
@@ -55,6 +57,11 @@ function App() {
     addTextAnnotation,
     updateTextAnnotation,
     deleteTextAnnotation,
+    undo,
+    redo,
+    canUndo,
+    canRedo,
+    undoGeneration,
   } = useRoleMap();
 
   const {
@@ -82,18 +89,36 @@ function App() {
   const [newGroupDefaults, setNewGroupDefaults] = useState<{ parentId?: string; sectionId?: string }>({});
   const [defaultParentSectionId, setDefaultParentSectionId] = useState<string | undefined>();
   const [showCommandPalette, setShowCommandPalette] = useState(false);
+  const [colorMode, setColorMode] = useState<'light' | 'dark'>('light');
+  const [snapToGrid, setSnapToGrid] = useState(false);
+  const [locked, setLocked] = useState(false);
 
-  // Ctrl+K / Cmd+K to toggle command palette
+  // Keyboard shortcuts: Ctrl+K (command palette), Ctrl+Z (undo), Ctrl+Y/Ctrl+Shift+Z (redo)
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
-      if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
+      const mod = e.ctrlKey || e.metaKey;
+      if (mod && e.key === 'k') {
         e.preventDefault();
         setShowCommandPalette((prev) => !prev);
+        return;
+      }
+      // Only block undo/redo when actively typing in a modal input
+      const active = document.activeElement as HTMLElement | null;
+      const isInModal = active?.closest('.modal-content, .modal-overlay');
+      if (isInModal && (active?.tagName === 'INPUT' || active?.tagName === 'TEXTAREA' || active?.tagName === 'SELECT')) return;
+
+      if (mod && e.key === 'z' && !e.shiftKey) {
+        e.preventDefault();
+        undo();
+      }
+      if (mod && (e.key === 'y' || (e.key === 'z' && e.shiftKey))) {
+        e.preventDefault();
+        redo();
       }
     };
     document.addEventListener('keydown', handler);
     return () => document.removeEventListener('keydown', handler);
-  }, []);
+  }, [undo, redo]);
 
   const selectedGroup = state.selectedNodeId
     ? activeMap.groups.find((g) => g.id === state.selectedNodeId) || null
@@ -124,7 +149,7 @@ function App() {
       setConfirmState({
         title: 'Delete Role Group',
         message: group
-          ? `Delete "${group.label}"? This cannot be undone.`
+          ? `Delete "${group.label}"? You can undo this with Ctrl+Z.`
           : 'Are you sure you want to delete this role group?',
         onConfirm: () => { deleteGroup(nodeId); setConfirmState(null); },
       });
@@ -167,8 +192,8 @@ function App() {
     setConfirmState({
       title: 'Delete Section',
       message: section
-        ? `Delete "${section.name}" and all groups inside it? This cannot be undone.`
-        : 'Delete this section and all its groups? This cannot be undone.',
+        ? `Delete "${section.name}" and all groups inside it? You can undo this with Ctrl+Z.`
+        : 'Delete this section and all its groups? You can undo this with Ctrl+Z.',
       onConfirm: () => { deleteSection(sectionId); setConfirmState(null); },
     });
   }, [deleteSection, activeMap.sections]);
@@ -235,6 +260,17 @@ function App() {
       setAlertState({ title: 'Export Error', message: msg, variant: 'danger' });
     });
   }, [activeMap.name]);
+
+  const handleExportPNG = useCallback(() => {
+    exportToPNG('role-map-canvas', `${activeMap.name}-role-map`, (msg) => {
+      setAlertState({ title: 'Export Error', message: msg, variant: 'danger' });
+    });
+  }, [activeMap.name]);
+
+  const handleExportTSV = useCallback(() => {
+    const tsv = exportMapToTsv(activeMap);
+    downloadTsv(`${activeMap.name}-roles`, tsv);
+  }, [activeMap]);
 
   const handleSaveData = useCallback(() => {
     const json = exportData();
@@ -309,6 +345,19 @@ function App() {
         onSaveNow={saveNow}
         onLoadError={(msg) => setAlertState({ title: 'Load Error', message: msg, variant: 'danger' })}
         onSearch={() => setShowCommandPalette(true)}
+        onUndo={undo}
+        onRedo={redo}
+        canUndo={canUndo()}
+        canRedo={canRedo()}
+        colorMode={colorMode}
+        onToggleColorMode={() => setColorMode(m => m === 'light' ? 'dark' : 'light')}
+        snapToGrid={snapToGrid}
+        onToggleSnapToGrid={() => setSnapToGrid(s => !s)}
+        locked={locked}
+        onToggleLocked={() => setLocked(l => !l)}
+        onExportPNG={handleExportPNG}
+        onExportTSV={handleExportTSV}
+        onUpdateMapDomain={(newDomain) => updateMapDomain(state.activeMapId, newDomain)}
       />
 
       {needsReopen && (
@@ -352,6 +401,10 @@ function App() {
             onDeleteTextAnnotation={deleteTextAnnotation}
             commandPaletteOpen={showCommandPalette}
             onCloseCommandPalette={() => setShowCommandPalette(false)}
+            undoGeneration={undoGeneration}
+            colorMode={colorMode}
+            snapToGrid={snapToGrid}
+            locked={locked}
           />
         </ReactFlowProvider>
       </main>

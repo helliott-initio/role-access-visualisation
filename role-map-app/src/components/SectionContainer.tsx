@@ -283,7 +283,7 @@ function SectionContainer({ id, data, selected }: NodeProps) {
         type="source"
         position={Position.Top}
         id="top"
-        style={baseHandleStyle}
+        style={{ ...baseHandleStyle, top: 5 }}
         isConnectableStart={true}
         isConnectableEnd={true}
       />
@@ -316,7 +316,7 @@ function SectionContainer({ id, data, selected }: NodeProps) {
         type="source"
         position={Position.Bottom}
         id="header-bottom"
-        style={{ ...baseHandleStyle, top: headerHeight, bottom: 'auto' }}
+        style={{ ...baseHandleStyle, top: headerHeight + 6, bottom: 'auto' }}
         isConnectableStart={true}
         isConnectableEnd={true}
       />

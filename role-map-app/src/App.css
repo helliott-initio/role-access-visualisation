@@ -37,6 +37,7 @@ html, body, #root {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  position: relative;
   padding: 0 16px;
   height: 48px;
   gap: 16px;
@@ -85,13 +86,37 @@ html, body, #root {
   line-height: 1.3;
 }
 
+.hdr-domain-editable {
+  cursor: pointer;
+  border-bottom: 1px dashed rgba(122, 148, 168, 0.3);
+  transition: border-color 0.15s, color 0.15s;
+}
+
+.hdr-domain-editable:hover {
+  color: #a0c4e0;
+  border-bottom-color: rgba(160, 196, 224, 0.5);
+}
+
+.hdr-domain-input {
+  background: rgba(255,255,255,0.08);
+  border: 1px solid rgba(100, 180, 255, 0.4);
+  border-radius: 4px;
+  padding: 1px 6px;
+  color: #e0e0e0;
+  outline: none;
+  width: 160px;
+}
+
 /* File indicator (center) */
 .hdr-file {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
   display: flex;
   align-items: center;
   justify-content: center;
-  flex: 1;
   min-width: 0;
+  pointer-events: auto;
 }
 
 .hdr-file-active {
@@ -102,7 +127,7 @@ html, body, #root {
   background: rgba(255,255,255,0.06);
   border: 1px solid rgba(255,255,255,0.08);
   border-radius: 6px;
-  max-width: 320px;
+  max-width: min(500px, 50vw);
 }
 
 .hdr-file-icon {
@@ -114,7 +139,7 @@ html, body, #root {
   font-size: 0.75rem;
   font-weight: 500;
   color: #c8d6e0;
-  max-width: 160px;
+  max-width: 300px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -244,6 +269,84 @@ html, body, #root {
   height: 20px;
   background: rgba(255,255,255,0.1);
   margin: 0 4px;
+}
+
+/* Undo/Redo icon buttons */
+.hdr-icon-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  background: rgba(255,255,255,0.06);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 6px;
+  color: rgba(255,255,255,0.7);
+  cursor: pointer;
+  transition: all 0.12s;
+}
+
+.hdr-icon-btn:hover:not(:disabled) {
+  background: rgba(255,255,255,0.12);
+  color: rgba(255,255,255,0.95);
+}
+
+.hdr-icon-btn:disabled {
+  opacity: 0.25;
+  cursor: default;
+}
+
+.hdr-icon-btn-active {
+  background: rgba(100, 180, 255, 0.2);
+  border-color: rgba(100, 180, 255, 0.4);
+  color: #6cb4ff;
+}
+
+.hdr-icon-btn-active:hover {
+  background: rgba(100, 180, 255, 0.3);
+}
+
+/* Node Toolbar (floating on selected nodes) */
+.node-toolbar {
+  display: flex;
+  gap: 2px;
+  background: #1e2d3d;
+  border-radius: 8px;
+  padding: 4px;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.3), 0 0 0 1px rgba(255,255,255,0.08);
+}
+
+.node-toolbar-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: rgba(255,255,255,0.7);
+  cursor: pointer;
+  transition: all 0.12s;
+}
+
+.node-toolbar-btn:hover {
+  background: rgba(255,255,255,0.12);
+  color: white;
+}
+
+.node-toolbar-btn-danger:hover {
+  background: rgba(255, 80, 80, 0.2);
+  color: #ff6b6b;
+}
+
+.node-toolbar-sep {
+  width: 1px;
+  height: 16px;
+  background: rgba(255,255,255,0.12);
+  margin: 0 2px;
+  flex-shrink: 0;
+  align-self: center;
 }
 
 /* Search trigger */
@@ -791,6 +894,11 @@ html, body, #root {
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  transition: width 0.2s ease;
+}
+
+.section-legend.legend-panel-collapsed {
+  width: 210px;
 }
 
 .legend-header {
@@ -799,6 +907,14 @@ html, body, #root {
   justify-content: space-between;
   padding: 10px 14px 8px;
   border-bottom: 1px solid rgba(255,255,255,0.07);
+  gap: 6px;
+}
+
+.legend-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
 }
 
 .legend-title {
@@ -836,6 +952,26 @@ html, body, #root {
 .legend-collapse-btn:hover {
   background: rgba(255,255,255,0.14);
   color: rgba(255,255,255,0.8);
+}
+
+/* Animated wrapper for smooth expand/collapse */
+.legend-list-wrapper {
+  display: grid;
+  grid-template-rows: 1fr;
+  transition: grid-template-rows 0.25s ease;
+  overflow: hidden;
+}
+
+.legend-list-wrapper.legend-list-hidden {
+  grid-template-rows: 0fr;
+}
+
+.legend-list-wrapper > .legend-list {
+  min-height: 0;
+}
+
+.legend-toggle-all {
+  font-size: 0.65rem !important;
 }
 
 .legend-list {
@@ -880,12 +1016,21 @@ html, body, #root {
 }
 
 .legend-item.legend-collapsed {
-  opacity: 0.35;
+  opacity: 0.4;
+  background: rgba(255,255,255,0.02);
 }
 
 .legend-item.legend-collapsed .legend-name {
   text-decoration: line-through;
-  text-decoration-color: rgba(255,255,255,0.25);
+  text-decoration-color: rgba(255,255,255,0.2);
+}
+
+.legend-item.legend-collapsed .legend-swatch {
+  opacity: 0.5;
+}
+
+.legend-item.legend-collapsed .legend-count {
+  opacity: 0.5;
 }
 
 /* Color swatch — mirrors the section header bar */
@@ -930,13 +1075,13 @@ html, body, #root {
 }
 
 .legend-chevron {
-  font-size: 0.7rem;
+  font-size: 0.65rem;
   font-weight: 600;
   opacity: 0.3;
   flex-shrink: 0;
   width: 10px;
   text-align: center;
-  transition: opacity 0.12s;
+  transition: opacity 0.15s, transform 0.2s ease;
 }
 
 .legend-item:hover .legend-chevron {
@@ -2544,4 +2689,63 @@ html, body, #root {
   height: 20px;
   font-size: 11px;
   border-radius: 5px;
+}
+
+/* ================================================================
+   DARK MODE OVERRIDES
+   React Flow adds a .dark class to .react-flow when colorMode="dark"
+   ================================================================ */
+
+.dark .canvas-container {
+  background: #1a1a2e;
+}
+
+.dark .react-flow__minimap {
+  background: #1e1e32;
+}
+
+.dark .role-node {
+  background: #2a2a3e;
+  border-color: rgba(255,255,255,0.15);
+  color: #e0e0e0;
+}
+
+.dark .role-node .node-label {
+  color: #e0e0e0;
+}
+
+.dark .role-node .node-email {
+  color: rgba(255,255,255,0.5);
+}
+
+.dark .section-container {
+  border-color: rgba(255,255,255,0.2);
+}
+
+.dark .tooltip-content {
+  background: #2a2a3e;
+  border-color: rgba(255,255,255,0.1);
+  color: #e0e0e0;
+}
+
+.dark .modal-overlay {
+  background: rgba(0,0,0,0.7);
+}
+
+.dark .modal-content {
+  background: #1e2d3d;
+  color: #e0e0e0;
+}
+
+.dark .context-menu {
+  background: #1e2d3d;
+  border-color: rgba(255,255,255,0.1);
+}
+
+.dark .context-menu-item {
+  color: rgba(255,255,255,0.85);
+}
+
+.dark .context-menu-item:hover {
+  background: rgba(255,255,255,0.08);
 }
