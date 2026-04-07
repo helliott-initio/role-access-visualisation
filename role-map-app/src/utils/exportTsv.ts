@@ -63,7 +63,7 @@ export function exportMapToTsv(map: RoleMap): string {
   for (const section of map.sections) {
     if (!section.email) continue; // Skip sections without an email — they're just visual containers
     const prefix = section.email.includes('@') ? section.email.split('@')[0] : section.email;
-    const role = section.description || section.type || '';
+    const role = section.mailType === 'security' ? 'security' : section.mailType === 'mailing' ? 'mailing' : 'none';
     const memberOf = findSectionMemberOf(section);
 
     rows.push([
@@ -82,8 +82,8 @@ export function exportMapToTsv(map: RoleMap): string {
   // Export role groups
   for (const group of map.groups) {
     const prefix = group.email.includes('@') ? group.email.split('@')[0] : group.email;
-    const section = map.sections.find(s => s.id === group.sectionId);
-    const role = group.description || section?.name || '';
+    const role = group.mailType === 'security' ? 'security'
+      : group.mailType === 'mailing' ? 'mailing' : 'none';
     const memberOf = findGroupMemberOf(group);
 
     rows.push([
