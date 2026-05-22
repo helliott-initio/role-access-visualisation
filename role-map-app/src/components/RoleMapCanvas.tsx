@@ -35,6 +35,7 @@ import { SectionSizeDialog } from './SectionSizeDialog';
 import { getLayoutedElements } from '../utils/layout';
 import type { RoleMap, RoleGroup, Section, MapConnection, TextAnnotation } from '../types';
 import { findAlignments, type GuideLine } from '../utils/snapAlignment';
+import { resolveGroupType, resolveSectionType, typeLabel as resolveTypeLabel } from '../utils/sectionType';
 
 const nodeTypes = {
   roleNode: RoleNode,
@@ -328,7 +329,7 @@ export function RoleMapCanvas({
             bgColor: section.bgColor,
             email: section.email,
             collapsed: section.collapsed,
-            type: section.type || (section.id === 'secondary-roles' ? 'secondary' : 'primary'),
+            type: resolveSectionType(section, map.sections) || 'primary',
             mailType: section.mailType,
             onResizeGuideLines: (lines: GuideLine[]) => setGuideLinesRef.current(lines),
             onResizeSnap: (snap: { nodeId: string; position: { x: number; y: number }; width: number; height: number }) => {
@@ -389,6 +390,7 @@ export function RoleMapCanvas({
           isSecondary: group.isSecondary,
           isRoot,
           mailType: group.mailType,
+          effectiveType: resolveGroupType(group, map.rootGroupId, map.sections),
         },
       });
 
@@ -1620,10 +1622,12 @@ export function RoleMapCanvas({
           <div className={`legend-list-wrapper ${legendCollapsed ? 'legend-list-hidden' : ''}`}>
             <div className="legend-list">
               {sectionBadges.map((section) => {
-                const typeLabel = section.type === 'department' ? 'Dept'
-                  : section.type === 'secondary' ? 'Secondary'
-                  : section.type === 'support' ? 'Support'
-                  : 'Primary';
+                const inherited = resolveTypeLabel(
+                  resolveSectionType(map.sections.find(s => s.id === section.id), map.sections)
+                );
+                const typeLabel = section.isDepartment
+                  ? (inherited ? `${inherited} (Dept)` : 'Dept')
+                  : (inherited || 'Primary');
                 return (
                   <button
                     key={section.id}
@@ -1667,10 +1671,10 @@ export function RoleMapCanvas({
           const section = map.sections.find(s => s.id === sectionId);
           if (!section) return null;
           const groupCount = map.groups.filter(g => g.sectionId === sectionId).length;
-          const typeLabel = section.type === 'department' ? 'Department'
-            : section.type === 'secondary' ? 'Secondary'
-            : section.type === 'support' ? 'Support'
-            : 'Primary';
+          const inherited = resolveTypeLabel(resolveSectionType(section, map.sections));
+          const typeLabel = section.type === 'department'
+            ? (inherited ? `Department · ${inherited}` : 'Department')
+            : (inherited || 'Primary');
           return (
             <Tooltip x={tooltip.x} y={tooltip.y}>
               <div className="tooltip-title">{section.name}</div>

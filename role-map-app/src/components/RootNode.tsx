@@ -1,16 +1,19 @@
 import { memo } from 'react';
 import { Handle, Position } from '@xyflow/react';
 import type { NodeProps } from '@xyflow/react';
+import type { EffectiveType } from '../utils/sectionType';
+import { typeAbbrev, typeLabel } from '../utils/sectionType';
 
 interface RootNodeData {
   label: string;
   email: string;
   mailType?: 'security' | 'mailing' | null;
+  effectiveType?: EffectiveType;
 }
 
 function RootNode({ data, selected }: NodeProps) {
   const nodeData = data as unknown as RootNodeData;
-  const { label, email, mailType } = nodeData;
+  const { label, email, mailType, effectiveType } = nodeData;
 
   const handleStyle = { background: '#fff', width: 10, height: 10, border: '2px solid #2d3e50' };
 
@@ -22,6 +25,12 @@ function RootNode({ data, selected }: NodeProps) {
       <Handle type="source" position={Position.Left} id="left" style={handleStyle} isConnectableStart={true} isConnectableEnd={true} />
       <Handle type="source" position={Position.Right} id="right" style={handleStyle} isConnectableStart={true} isConnectableEnd={true} />
 
+      {effectiveType && (
+        <span className={`role-type-badge role-type-${effectiveType}`}>
+          <span className="role-type-letter">{typeAbbrev(effectiveType)}</span>
+          <span className="role-type-expanded">{typeLabel(effectiveType)}</span>
+        </span>
+      )}
       {mailType && (
         <span className={`mail-type-badge mail-type-${mailType}`}>
           <span className="mail-type-letter">{mailType === 'security' ? 'S' : 'M'}</span>

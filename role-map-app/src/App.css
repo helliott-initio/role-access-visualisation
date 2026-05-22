@@ -2655,6 +2655,67 @@ html, body, #root {
   z-index: 5;
 }
 
+/* ── Section-type badge (Pri/Sec/Sup) — top-left of role/root nodes ── */
+.role-type-badge {
+  position: absolute;
+  top: -6px;
+  left: -6px;
+  z-index: 5;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 18px;
+  min-width: 24px;
+  border-radius: 9px;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  line-height: 1;
+  color: #fff;
+  flex-shrink: 0;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.18);
+  overflow: hidden;
+  white-space: nowrap;
+  cursor: default;
+  transition: min-width 0.2s ease, padding 0.2s ease;
+  padding: 0 4px;
+}
+
+.role-type-letter {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.role-type-expanded {
+  max-width: 0;
+  overflow: hidden;
+  opacity: 0;
+  padding-left: 0;
+  transition: max-width 0.2s ease, opacity 0.15s ease, padding-left 0.2s ease;
+}
+
+.role-type-badge:hover .role-type-expanded,
+.role-node:hover > .role-type-badge .role-type-expanded,
+.root-node:hover > .role-type-badge .role-type-expanded {
+  max-width: 70px;
+  opacity: 1;
+  padding-left: 4px;
+}
+
+.role-type-primary {
+  background: #2e7d32;
+}
+
+.role-type-secondary {
+  background: #6a1b9a;
+}
+
+.role-type-support {
+  background: #616161;
+}
+
 /* ── Mail type selector in modals ── */
 .mail-type-selector {
   display: flex;

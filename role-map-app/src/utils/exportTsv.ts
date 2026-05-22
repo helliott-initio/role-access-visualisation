@@ -1,4 +1,5 @@
-import type { RoleMap, Section } from '../types';
+import type { RoleMap } from '../types';
+import { resolveGroupType, resolveSectionType, typeLabel } from './sectionType';
 
 const HEADERS = [
   'Role Name',
@@ -59,25 +60,13 @@ export function exportMapToTsv(map: RoleMap): string {
     return '';
   };
 
-  // Resolve a section's effective type by walking up the parent chain. Departments
-  // inherit their type from the top-level section they belong to, so a group inside
-  // a department in a "Primary" section is also "Primary".
-  const getEffectiveType = (section: Section | undefined): Section['type'] | undefined => {
-    if (!section) return undefined;
-    if (section.type === 'department' && section.parentSectionId) {
-      return getEffectiveType(map.sections.find(s => s.id === section.parentSectionId));
-    }
-    return section.type;
-  };
-
-  const typeToRole = (type: Section['type'] | undefined): string =>
-    type === 'primary' ? 'Primary' : type === 'secondary' ? 'Secondary' : 'None';
+  const roleFor = (type: ReturnType<typeof resolveSectionType>) => typeLabel(type) || 'None';
 
   // Export sections and departments as rows (they represent Google Groups too)
   for (const section of map.sections) {
     if (!section.email) continue; // Skip sections without an email — they're just visual containers
     const prefix = section.email.includes('@') ? section.email.split('@')[0] : section.email;
-    const role = typeToRole(getEffectiveType(section));
+    const role = roleFor(resolveSectionType(section, map.sections));
     const memberOf = findSectionMemberOf(section);
 
     rows.push([
@@ -96,8 +85,7 @@ export function exportMapToTsv(map: RoleMap): string {
   // Export role groups
   for (const group of map.groups) {
     const prefix = group.email.includes('@') ? group.email.split('@')[0] : group.email;
-    const section = map.sections.find(s => s.id === group.sectionId);
-    const role = typeToRole(getEffectiveType(section));
+    const role = roleFor(resolveGroupType(group, map.rootGroupId, map.sections));
     const memberOf = findGroupMemberOf(group);
 
     rows.push([
