@@ -38,12 +38,17 @@ function RoleNode({ data, selected }: NodeProps) {
       <Handle type="source" position={Position.Left} id="left" style={handleStyle} isConnectableStart={true} isConnectableEnd={true} />
       <Handle type="source" position={Position.Right} id="right" style={handleStyle} isConnectableStart={true} isConnectableEnd={true} />
 
-      {effectiveType && (
-        <span className={`role-type-badge role-type-${effectiveType}`}>
-          <span className="role-type-letter">{typeAbbrev(effectiveType)}</span>
-          <span className="role-type-expanded">{typeLabel(effectiveType)}</span>
-        </span>
-      )}
+      {effectiveType && (() => {
+        const abbrev = typeAbbrev(effectiveType);
+        const full = typeLabel(effectiveType);
+        const rest = full.startsWith(abbrev) ? full.slice(abbrev.length) : full;
+        return (
+          <span className={`role-type-badge role-type-${effectiveType}`}>
+            <span className="role-type-letter">{abbrev}</span>
+            <span className="role-type-expanded">{rest}</span>
+          </span>
+        );
+      })()}
       {mailType && (
         <span className={`mail-type-badge mail-type-${mailType}`}>
           <span className="mail-type-letter">{mailType === 'security' ? 'S' : 'M'}</span>

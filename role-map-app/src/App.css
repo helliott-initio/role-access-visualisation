@@ -2692,8 +2692,7 @@ html, body, #root {
   max-width: 0;
   overflow: hidden;
   opacity: 0;
-  padding-left: 0;
-  transition: max-width 0.2s ease, opacity 0.15s ease, padding-left 0.2s ease;
+  transition: max-width 0.2s ease, opacity 0.15s ease;
 }
 
 .role-type-badge:hover .role-type-expanded,
@@ -2701,7 +2700,6 @@ html, body, #root {
 .root-node:hover > .role-type-badge .role-type-expanded {
   max-width: 70px;
   opacity: 1;
-  padding-left: 4px;
 }
 
 .role-type-primary {
