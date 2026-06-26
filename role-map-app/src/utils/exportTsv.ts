@@ -48,14 +48,10 @@ export function exportMapToTsv(map: RoleMap): string {
   };
 
   // Helper: find the "Member Of" email for a group.
-  // In this app, arrows point upward from child to parent. The data model stores
-  // this as target.parentId = source (the node the arrow comes from). So parentId
-  // points to the node BELOW, and the node ABOVE is the one whose parentId = our id.
-  // "Member Of" = the group this arrow points TO = find(g => g.parentId === myId).
+  // group.parentId stores the parent group's id, so look it up directly.
   const findGroupMemberOf = (group: typeof map.groups[0]): string => {
-    // Find the group above us (the one this group's arrow points to)
-    const groupAbove = map.groups.find(g => g.parentId === group.id);
-    if (groupAbove?.email) return groupAbove.email;
+    const parentGroup = map.groups.find(g => g.id === group.parentId);
+    if (parentGroup?.email) return parentGroup.email;
 
     // Fall back to the section's email
     const section = map.sections.find(s => s.id === group.sectionId);
