@@ -25,24 +25,34 @@ export function exportMapToTsv(map: RoleMap): string {
   const rows: string[] = [HEADERS.join('\t')];
 
   // Helper: find the "Member Of" email for a section.
-  // Only populated when the section has a physical MapConnection to another node.
-  // If no connection exists the field is left blank.
+  // Priority: (1) explicit outgoing MapConnection overrides everything;
+  // (2) department sections (parentSectionId set) auto-inherit from their parent
+  //     since visual nesting implies membership;
+  // (3) top-level sections with no connection → blank.
   const findSectionMemberOf = (section: typeof map.sections[0]): string => {
     const sectionNodeId = `section-${section.id}`;
-    // Only match connections where the section is the source — those indicate
-    // "this section is a member of the target". Connections where the section
-    // is the target are manager→section header links, not membership relationships.
+    // Connections where the section is the source mean "this section is a member
+    // of the target". Connections where it is the target are manager→header links.
     const conn = (map.connections || []).find(c => c.source === sectionNodeId);
-    if (!conn) return '';
-    const otherId = conn.target;
-    if (otherId.startsWith('section-')) {
-      const otherSection = map.sections.find(s => s.id === otherId.replace('section-', ''));
-      if (otherSection?.email) return otherSection.email;
-      const otherRootGroup = map.groups.find(g => g.sectionId === otherSection?.id && !g.parentId);
-      if (otherRootGroup?.email) return otherRootGroup.email;
-    } else {
-      const otherGroup = map.groups.find(g => g.id === otherId);
-      if (otherGroup?.email) return otherGroup.email;
+    if (conn) {
+      const otherId = conn.target;
+      if (otherId.startsWith('section-')) {
+        const otherSection = map.sections.find(s => s.id === otherId.replace('section-', ''));
+        if (otherSection?.email) return otherSection.email;
+        const otherRootGroup = map.groups.find(g => g.sectionId === otherSection?.id && !g.parentId);
+        if (otherRootGroup?.email) return otherRootGroup.email;
+      } else {
+        const otherGroup = map.groups.find(g => g.id === otherId);
+        if (otherGroup?.email) return otherGroup.email;
+      }
+    }
+    // Department sections auto-inherit from their parent section even without an
+    // explicit edge — visual nesting inside a parent is sufficient.
+    if (section.parentSectionId) {
+      const parentSection = map.sections.find(s => s.id === section.parentSectionId);
+      if (parentSection?.email) return parentSection.email;
+      const parentRootGroup = map.groups.find(g => g.sectionId === section.parentSectionId && !g.parentId);
+      if (parentRootGroup?.email) return parentRootGroup.email;
     }
     return '';
   };
