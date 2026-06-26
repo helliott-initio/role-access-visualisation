@@ -29,11 +29,12 @@ export function exportMapToTsv(map: RoleMap): string {
   // If no connection exists the field is left blank.
   const findSectionMemberOf = (section: typeof map.sections[0]): string => {
     const sectionNodeId = `section-${section.id}`;
-    const conn = (map.connections || []).find(
-      c => c.source === sectionNodeId || c.target === sectionNodeId
-    );
+    // Only match connections where the section is the source — those indicate
+    // "this section is a member of the target". Connections where the section
+    // is the target are manager→section header links, not membership relationships.
+    const conn = (map.connections || []).find(c => c.source === sectionNodeId);
     if (!conn) return '';
-    const otherId = conn.source === sectionNodeId ? conn.target : conn.source;
+    const otherId = conn.target;
     if (otherId.startsWith('section-')) {
       const otherSection = map.sections.find(s => s.id === otherId.replace('section-', ''));
       if (otherSection?.email) return otherSection.email;
