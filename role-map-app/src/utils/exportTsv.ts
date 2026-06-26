@@ -58,10 +58,12 @@ export function exportMapToTsv(map: RoleMap): string {
   };
 
   // Helper: find the "Member Of" email for a group.
-  // group.parentId stores the parent group's id, so look it up directly.
+  // group.parentId stores the source of the incoming edge (the group that flows
+  // into this one). So the group this one is a member of is found by looking for
+  // the group whose incoming edge comes from us: find(g => g.parentId === our.id).
   const findGroupMemberOf = (group: typeof map.groups[0]): string => {
-    const parentGroup = map.groups.find(g => g.id === group.parentId);
-    if (parentGroup?.email) return parentGroup.email;
+    const groupAbove = map.groups.find(g => g.parentId === group.id);
+    if (groupAbove?.email) return groupAbove.email;
 
     // Fall back to the section's email
     const section = map.sections.find(s => s.id === group.sectionId);
