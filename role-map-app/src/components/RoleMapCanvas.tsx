@@ -19,7 +19,7 @@ import {
 } from '@xyflow/react';
 import type { Node, Edge, NodeChange, EdgeChange, Connection, OnReconnect } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
-import { toPng } from 'html-to-image';
+import { toPng, toJpeg } from 'html-to-image';
 import jsPDF from 'jspdf';
 
 import RoleNode from './RoleNode';
@@ -1981,12 +1981,14 @@ export async function exportToPDF(elementId: string, filename: string, onError?:
     const v = buildExportViewport(viewport);
     if (!v) throw new Error('No content found to export');
 
-    // Capture at 2× pixel ratio so zooming in on the PDF reveals full detail
-    const dataUrl = await toPng(viewport, {
+    // JPEG at 92% quality keeps file size small (~3-5 MB) while remaining crisp.
+    // pixelRatio 1.5 gives enough extra resolution for zooming without bloat.
+    const dataUrl = await toJpeg(viewport, {
       backgroundColor: '#ffffff',
       width: v.imgW,
       height: v.imgH,
-      pixelRatio: 2,
+      pixelRatio: 1.5,
+      quality: 0.92,
       style: {
         width: `${v.imgW}px`,
         height: `${v.imgH}px`,
@@ -2000,7 +2002,7 @@ export async function exportToPDF(elementId: string, filename: string, onError?:
       unit: 'px',
       format: [v.imgW, v.imgH],
     });
-    pdf.addImage(dataUrl, 'PNG', 0, 0, v.imgW, v.imgH);
+    pdf.addImage(dataUrl, 'JPEG', 0, 0, v.imgW, v.imgH);
     pdf.save(`${filename}.pdf`);
   } catch (error) {
     console.error('Error exporting PDF:', error);
