@@ -15,10 +15,11 @@ import {
   ConnectionMode,
   useStore,
   useReactFlow,
+  getViewportForBounds,
 } from '@xyflow/react';
 import type { Node, Edge, NodeChange, EdgeChange, Connection, OnReconnect } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
-import html2canvas from 'html2canvas';
+import { toPng } from 'html-to-image';
 import jsPDF from 'jspdf';
 
 import RoleNode from './RoleNode';
@@ -1889,28 +1890,83 @@ export function RoleMapCanvas({
   );
 }
 
+// Compute the bounding box of all React Flow nodes in model (canvas) space.
+// Child nodes (departments nested inside parent sections) have transforms
+// relative to their parent, so we recurse up the DOM to get absolute positions.
+function getContentBounds(viewportEl: Element): { x: number; y: number; width: number; height: number } | null {
+  function absPos(el: HTMLElement): { x: number; y: number } {
+    const m = el.style.transform?.match(/translate\(\s*([-\d.]+)px,\s*([-\d.]+)px\)/);
+    const lx = m ? parseFloat(m[1]) : 0;
+    const ly = m ? parseFloat(m[2]) : 0;
+    const parentNode = el.parentElement?.closest('.react-flow__node') as HTMLElement | null;
+    if (parentNode) {
+      const p = absPos(parentNode);
+      return { x: lx + p.x, y: ly + p.y };
+    }
+    return { x: lx, y: ly };
+  }
+
+  const nodes = Array.from(viewportEl.querySelectorAll('.react-flow__node')) as HTMLElement[];
+  if (!nodes.length) return null;
+
+  let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+  for (const node of nodes) {
+    const { x, y } = absPos(node);
+    x0 = Math.min(x0, x);
+    y0 = Math.min(y0, y);
+    x1 = Math.max(x1, x + (node.offsetWidth || 200));
+    y1 = Math.max(y1, y + (node.offsetHeight || 100));
+  }
+
+  return isFinite(x0) ? { x: x0, y: y0, width: x1 - x0, height: y1 - y0 } : null;
+}
+
+// Build the viewport transform + image dimensions needed to show all content.
+function buildExportViewport(viewportEl: Element, maxSide = 3000) {
+  const PADDING = 60;
+  const raw = getContentBounds(viewportEl);
+  if (!raw) return null;
+
+  const bounds = { x: raw.x - PADDING, y: raw.y - PADDING, width: raw.width + PADDING * 2, height: raw.height + PADDING * 2 };
+  const aspect = bounds.width / bounds.height;
+  const imgW = aspect >= 1 ? maxSide : Math.round(maxSide * aspect);
+  const imgH = aspect >= 1 ? Math.round(maxSide / aspect) : maxSide;
+
+  const { x, y, zoom } = getViewportForBounds(bounds, imgW, imgH, 0.05, 2, 0);
+  return { imgW, imgH, x, y, zoom };
+}
+
 export async function exportToPNG(elementId: string, filename: string, onError?: (message: string) => void) {
   const element = document.getElementById(elementId);
   if (!element) return;
 
   try {
-    const hiResScale = 2;
-    const canvas = await html2canvas(element, {
-      scale: hiResScale,
-      useCORS: true,
-      logging: false,
+    const viewport = element.querySelector('.react-flow__viewport') as HTMLElement;
+    if (!viewport) throw new Error('React Flow viewport not found');
+
+    const v = buildExportViewport(viewport);
+    if (!v) throw new Error('No content found to export');
+
+    const dataUrl = await toPng(viewport, {
       backgroundColor: '#ffffff',
+      width: v.imgW,
+      height: v.imgH,
+      pixelRatio: 2,
+      style: {
+        width: `${v.imgW}px`,
+        height: `${v.imgH}px`,
+        transform: `translate(${v.x}px, ${v.y}px) scale(${v.zoom})`,
+        transformOrigin: 'top left',
+      },
     });
 
     const link = document.createElement('a');
     link.download = `${filename}.png`;
-    link.href = canvas.toDataURL('image/png');
+    link.href = dataUrl;
     link.click();
   } catch (error) {
     console.error('Error exporting PNG:', error);
-    if (onError) {
-      onError('Error exporting PNG. Please try again.');
-    }
+    if (onError) onError('Error exporting PNG. Please try again.');
   }
 }
 
@@ -1919,30 +1975,35 @@ export async function exportToPDF(elementId: string, filename: string, onError?:
   if (!element) return;
 
   try {
-    const hiResScale = 2;
-    const canvas = await html2canvas(element, {
-      scale: hiResScale,
-      useCORS: true,
-      logging: false,
-      backgroundColor: '#ffffff',
-    });
+    const viewport = element.querySelector('.react-flow__viewport') as HTMLElement;
+    if (!viewport) throw new Error('React Flow viewport not found');
 
-    const imgData = canvas.toDataURL('image/jpeg', 0.92);
-    const pageW = canvas.width / hiResScale;
-    const pageH = canvas.height / hiResScale;
+    const v = buildExportViewport(viewport);
+    if (!v) throw new Error('No content found to export');
+
+    // Capture at 2× pixel ratio so zooming in on the PDF reveals full detail
+    const dataUrl = await toPng(viewport, {
+      backgroundColor: '#ffffff',
+      width: v.imgW,
+      height: v.imgH,
+      pixelRatio: 2,
+      style: {
+        width: `${v.imgW}px`,
+        height: `${v.imgH}px`,
+        transform: `translate(${v.x}px, ${v.y}px) scale(${v.zoom})`,
+        transformOrigin: 'top left',
+      },
+    });
 
     const pdf = new jsPDF({
-      orientation: pageW > pageH ? 'landscape' : 'portrait',
+      orientation: v.imgW >= v.imgH ? 'landscape' : 'portrait',
       unit: 'px',
-      format: [pageW, pageH],
+      format: [v.imgW, v.imgH],
     });
-
-    pdf.addImage(imgData, 'JPEG', 0, 0, pageW, pageH);
+    pdf.addImage(dataUrl, 'PNG', 0, 0, v.imgW, v.imgH);
     pdf.save(`${filename}.pdf`);
   } catch (error) {
     console.error('Error exporting PDF:', error);
-    if (onError) {
-      onError('Error exporting PDF. Please try again.');
-    }
+    if (onError) onError('Error exporting PDF. Please try again.');
   }
 }
