@@ -348,8 +348,8 @@ function App() {
         onSearch={() => setShowCommandPalette(true)}
         onUndo={undo}
         onRedo={redo}
-        canUndo={canUndo()}
-        canRedo={canRedo()}
+        canUndo={canUndo}
+        canRedo={canRedo}
         colorMode={colorMode}
         onToggleColorMode={() => setColorMode(m => m === 'light' ? 'dark' : 'light')}
         snapToGrid={snapToGrid}

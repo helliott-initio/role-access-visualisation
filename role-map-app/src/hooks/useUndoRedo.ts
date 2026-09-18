@@ -1,4 +1,4 @@
-import { useCallback, useRef } from 'react';
+import { useCallback, useRef, useState } from 'react';
 
 const MAX_HISTORY = 50;
 
@@ -22,8 +22,16 @@ export function useUndoRedo<T>() {
   // per drag operation, not per frame.
   const batchRef = useRef(false);
 
-  const canUndo = useCallback(() => historyRef.current.past.length > 0, []);
-  const canRedo = useCallback(() => historyRef.current.future.length > 0, []);
+  // History lives in a ref so pushes don't re-render on every drag frame, but the
+  // *availability* of undo/redo has to be reactive or toolbar buttons keep a stale
+  // disabled state. Mirror just the two booleans into state.
+  const [canUndo, setCanUndo] = useState(false);
+  const [canRedo, setCanRedo] = useState(false);
+
+  const syncAvailability = useCallback(() => {
+    setCanUndo(historyRef.current.past.length > 0);
+    setCanRedo(historyRef.current.future.length > 0);
+  }, []);
 
   /**
    * Save current state to history before a mutation.
@@ -43,7 +51,8 @@ export function useUndoRedo<T>() {
       past: newPast,
       future: [],
     };
-  }, []);
+    syncAvailability();
+  }, [syncAvailability]);
 
   /** End a batch operation (call on drag end, etc.) */
   const endBatch = useCallback(() => {
@@ -65,9 +74,10 @@ export function useUndoRedo<T>() {
       past: newPast,
       future: [currentState, ...history.future],
     };
+    syncAvailability();
 
     return restored;
-  }, []);
+  }, [syncAvailability]);
 
   /**
    * Redo: pop from future, push current to past, return the restored state.
@@ -83,15 +93,17 @@ export function useUndoRedo<T>() {
       past: [...history.past, currentState],
       future: newFuture,
     };
+    syncAvailability();
 
     return restored;
-  }, []);
+  }, [syncAvailability]);
 
   /** Clear all history */
   const clearHistory = useCallback(() => {
     historyRef.current = { past: [], future: [] };
     batchRef.current = false;
-  }, []);
+    syncAvailability();
+  }, [syncAvailability]);
 
   return {
     pushState,

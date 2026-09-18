@@ -71,7 +71,9 @@ export function useRoleMap() {
       return;
     }
     if (!batch) endBatch();
-    const { selectedNodeId: _, isFirstLaunch: __, showSecondaryRoles: ___, ...dataSnapshot } = stateRef.current;
+    // Strip UI-only fields — undo restores the data model, not the selection.
+    const { selectedNodeId, isFirstLaunch, showSecondaryRoles, ...dataSnapshot } = stateRef.current;
+    void selectedNodeId; void isFirstLaunch; void showSecondaryRoles;
     pushState({ ...dataSnapshot, selectedNodeId: null, isFirstLaunch: false, showSecondaryRoles: true } as AppState, batch);
     setState(updater);
   }, [pushState, endBatch]);

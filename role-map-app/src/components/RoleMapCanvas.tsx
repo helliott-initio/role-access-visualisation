@@ -1004,7 +1004,7 @@ export function RoleMapCanvas({
   // Update edge style
   const handleUpdateEdgeStyle = useCallback(
     (edgeId: string, style: { dashed?: boolean; animated?: boolean; toggleArrow?: boolean }) => {
-      let persistedStyle: { dashed?: boolean; animated?: boolean; noArrow?: boolean } = {};
+      const persistedStyle: { dashed?: boolean; animated?: boolean; noArrow?: boolean } = {};
 
       setEdges(eds =>
         eds.map(e => {
@@ -1197,7 +1197,9 @@ export function RoleMapCanvas({
       if (newConnection.source && newConnection.target) {
         // Prevent self-connections and circular references
         if (newConnection.source === newConnection.target) return;
-        if (wouldCreateCycle(newConnection.source, newConnection.target)) return;
+        // onReparent makes the edge TARGET the child and the SOURCE its parent,
+        // so the cycle check takes (child, parent) — not (source, target).
+        if (wouldCreateCycle(newConnection.target, newConnection.source)) return;
 
         edgeReconnectSuccessful.current = true;
         onReparent(
@@ -1215,13 +1217,17 @@ export function RoleMapCanvas({
   const onReconnectEnd = useCallback(
     (_: MouseEvent | TouchEvent, edge: Edge) => {
       if (!edgeReconnectSuccessful.current) {
-        const childId = edge.target;
-        onReparent(childId, null);
+        // Dropping on empty canvas deletes the edge. Route through the same
+        // branching as keyboard delete: a standalone `conn-` edge must be removed
+        // from map.connections and a `secondary-` edge from supplementsRoles —
+        // clearing parentId here would wipe an unrelated relationship and the
+        // edge would reappear on the next sync.
+        handleEdgesDelete([edge]);
         setEdges((eds) => eds.filter((e) => e.id !== edge.id));
       }
       edgeReconnectSuccessful.current = true;
     },
-    [setEdges, onReparent]
+    [setEdges, handleEdgesDelete]
   );
 
   // Smart alignment snapping during node drag
@@ -1369,7 +1375,8 @@ export function RoleMapCanvas({
           );
         } else {
           // Prevent circular references (only applies to parent-child edges)
-          if (wouldCreateCycle(connection.source, connection.target)) return;
+          // (child, parent) — the edge target becomes the child, see onReparent below.
+          if (wouldCreateCycle(connection.target, connection.source)) return;
 
           // Save the handle IDs to the data model as parent relationship
           onReparent(
