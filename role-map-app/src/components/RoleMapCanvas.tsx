@@ -36,6 +36,7 @@ import { SectionSizeDialog } from './SectionSizeDialog';
 import { getLayoutedElements } from '../utils/layout';
 import type { RoleMap, RoleGroup, Section, MapConnection, TextAnnotation } from '../types';
 import { findAlignments, type GuideLine } from '../utils/snapAlignment';
+import { wouldCreateCycle as graphWouldCreateCycle } from '../utils/graph';
 import { resolveGroupType, resolveSectionType, typeLabel as resolveTypeLabel } from '../utils/sectionType';
 
 const nodeTypes = {
@@ -1172,23 +1173,11 @@ export function RoleMapCanvas({
     setIsConnecting(false);
   }, []);
 
-  // Check if connecting to a node would create a circular reference
+  // Check if connecting to a node would create a circular reference.
+  // Argument order is (child, parent) — see utils/graph.ts.
   const wouldCreateCycle = useCallback(
-    (childId: string, parentId: string): boolean => {
-      if (childId === parentId) return true;
-      // Walk up the parent chain from parentId to see if we reach childId
-      let current = parentId;
-      const visited = new Set<string>();
-      while (current) {
-        if (visited.has(current)) return true;
-        visited.add(current);
-        const group = map.groups.find(g => g.id === current);
-        if (!group?.parentId) break;
-        if (group.parentId === childId) return true;
-        current = group.parentId;
-      }
-      return false;
-    },
+    (childId: string, parentId: string): boolean =>
+      graphWouldCreateCycle(map.groups, childId, parentId),
     [map.groups]
   );
 
